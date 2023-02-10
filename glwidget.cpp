@@ -56,6 +56,79 @@
 
 #include <QDebug>
 
+Mesh::Mesh()
+{
+    //data.resize(3 * 6); // 8 point, 3 floats each
+
+    addVertex(0,0,0);
+    addVertex(0.3,0,0);
+    addVertex(0.3,0.3,0);
+
+
+    appendVertex2(texData, 0,0);
+    appendVertex2(texData, 1,0);
+    appendVertex2(texData, 1, 1);
+    //addVertex(0,0,0);
+    //addVertex(1,1,0);
+    //addVertex(0,1,1);
+
+    //addVertex(0,1,0);
+    //addVertex(0,0,1);
+    //addVertex(1,0,1);
+    //addVertex(1,1,1);
+    //addVertex(0,1,1);
+
+    // for three vertices, we put the same "color" i.e. faceid three times
+    QVector3D v = hideIntInVector3D(0xffffff);
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+}
+
+
+QVector3D Mesh::hideIntInVector3D(unsigned int i)
+{
+    QVector3D v;
+    unsigned int MAX_HIDDEN = 16777216; // i.e. 2^24 or 3*8bit precision offered by RGB colors up to 255 for each component
+
+    if (i >= MAX_HIDDEN)
+    {
+        qDebug() << "Error. Cannot hide such a big int in a Vector3D";
+        return v;
+    }
+    unsigned char i_part1 = i & 0xff;
+    unsigned char i_part2 = (i >> 8) & 0xff;
+    unsigned char i_part3 = (i >> 16) & 0xff;
+
+    v.setX( ((float)i_part1)/255 );
+    v.setY( ((float)i_part2)/255 );
+    v.setZ( ((float)i_part3)/255 );
+
+    return v;
+}
+
+unsigned int Mesh::unhideIntFromVector3D(QVector3D& v)
+{
+    unsigned char x = v.x() * 255.0;
+    unsigned char y = v.y() * 255.0;
+    unsigned char z = v.z() * 255.0;
+
+    unsigned int i = (unsigned int)z << 16 | (unsigned int)y << 8 | (unsigned int)x;
+
+    return i;
+}
+
+
+
 bool GLWidget::m_transparent = false;
 
 GLWidget::GLWidget(QWidget *parent)
@@ -161,9 +234,11 @@ static const char *vertexShaderSource =
     "attribute vec4 vertex;\n"
     "attribute vec3 normal;\n"
     "attribute vec2 tex;\n"
+    "attribute vec3 faceid;\n"
     "varying vec3 vert;\n"
     "varying vec3 vertNormal;\n"
     "varying vec2 texCoord;\n"
+    "varying vec3 vfaceid;\n"
     "uniform mat4 projMatrix;\n"
     "uniform mat4 mvMatrix;\n"
     "uniform mat3 normalMatrix;\n"
@@ -171,6 +246,7 @@ static const char *vertexShaderSource =
     "   vert = vertex.xyz;\n"
     "   vertNormal = normalize(normalMatrix * normal);\n"
     "   texCoord = tex;\n"
+    "   vfaceid = faceid;\n"
     "   gl_Position = projMatrix * mvMatrix * vertex;\n"
     "}\n";
 
@@ -178,13 +254,15 @@ static const char *fragmentShaderSource =
     "varying highp vec3 vert;\n"
     "varying vec3 vertNormal;\n"
     "varying vec2 texCoord;\n"
+    "varying vec3 vfaceid;\n"
     "uniform sampler2D texture;\n"
     "uniform highp vec4 rgbColor;\n"
     "void main() {\n"
     "highp vec3 lightDir = vec3(0.0, 0.0, -1.0);\n"
     "highp float intensity =  dot(-lightDir, vertNormal);\n"
     //"   gl_FragColor = rgbColor*intensity;\n"
-    "   gl_FragColor = texture2D(texture, texCoord);\n"
+    //"   gl_FragColor = texture2D(texture, texCoord);\n"
+    "gl_FragColor = vec4(vfaceid, 1.0);\n"
     "}\n";
 
 void GLWidget::initializeGL()
@@ -207,6 +285,7 @@ void GLWidget::initializeGL()
     m_program->bindAttributeLocation("vertex", 0);
     m_program->bindAttributeLocation("normal", 1);
     m_program->bindAttributeLocation("tex", 2);
+    m_program->bindAttributeLocation("faceid", 3);
     m_program->link();
 
     m_program->bind();
@@ -232,6 +311,10 @@ void GLWidget::initializeGL()
     texVbo.create();
     texVbo.bind();
     texVbo.allocate(mesh_cube.texData.constData(), mesh_cube.data.size()* sizeof(GLfloat));
+
+    faceidVbo.create();
+    faceidVbo.bind();
+    faceidVbo.allocate(mesh_cube.faceidData.constData(), mesh_cube.faceidData.size() * sizeof(GLfloat));
 
     // Store the vertex attribute bindings for the program.
     setupVertexAttribs();
@@ -268,6 +351,11 @@ void GLWidget::setupVertexAttribs()
     f->glEnableVertexAttribArray(2);
     f->glVertexAttribPointer(2, 2, GL_FLOAT, GL_TRUE, 2 * sizeof(GLfloat), nullptr);
     texVbo.release();
+
+    faceidVbo.bind();
+    f->glEnableVertexAttribArray(3);
+    f->glVertexAttribPointer(3, 3, GL_FLOAT, GL_TRUE, 3 * sizeof(GLfloat), nullptr);
+    faceidVbo.release();
 
 }
 

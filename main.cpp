@@ -61,6 +61,10 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
+    //unsigned int i = 4000000;
+    //QVector3D v = Mesh::hideIntInVector3D(i);
+    //unsigned int j = Mesh::unhideIntFromVector3D(v);
+
     QCoreApplication::setApplicationName("Qt Hello GL 2 Example");
     QCoreApplication::setOrganizationName("QtProject");
     QCoreApplication::setApplicationVersion(QT_VERSION_STR);

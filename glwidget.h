@@ -96,6 +96,7 @@ public:
     QColor meshColor = QColor(0,255,0); // will be set as a uniform value
 
     QVector<GLfloat> texData;
+    QVector<GLfloat> faceidData;
 
 
     void addVertex(GLfloat x, GLfloat y, GLfloat z)
@@ -115,42 +116,6 @@ public:
         dest.append(x);
         dest.append(y);
     }
-
-
-    /*
-    void projectPoint(QMatrix4x4& mvp_mat)
-    {
-        QGLFramebufferObject
-    }
-    */
-
-    // transform mesh points according to given model-view-projection transformation matrix and
-    // then convert to NDC (normalized device coordinates) by W devision
-    /*
-    void project(QMatrix4x4 mvp_mat)
-    {
-        QVector<Fragment> ndcPoints; // points transformed to NDC coordinates
-
-        for (int i=0; i<points.size(); i++)
-        {
-            int triangle_i = i % 3;
-            QVector4D ndcPoint = mvp_mat * points[i];
-            float w = ndcPoint.w();
-            if (ndcPoint.x() <= w && ndcPoint.x() >= -w)
-                if (ndcPoint.y() <= w && ndcPoint.y() >= -w)
-                    if (ndcPoint.z() <= w && ndcPoint.z() >= -w)
-                    {
-
-                    }
-
-            ndcPoint.setX( ndcPoint.x()/ndcPoint.w());
-            ndcPoint.setY( ndcPoint.y()/ndcPoint.w());
-            ndcPoint.setZ( ndcPoint.x()/ndcPoint.w());
-
-        }
-
-    }
-    */
 
     // prepare the raw data array of vertices ready to be fed to the GPU
     void swallow()
@@ -178,30 +143,10 @@ public:
 
     }
 
-    Mesh()
-    {
-        //data.resize(3 * 6); // 8 point, 3 floats each
+    Mesh();
+    static QVector3D hideIntInVector3D(unsigned int i);
+    static unsigned int unhideIntFromVector3D(QVector3D& v);
 
-        addVertex(0,0,0);
-        addVertex(0.3,0,0);
-        addVertex(0.3,0.3,0);
-
-
-        appendVertex2(texData, 0,0);
-        appendVertex2(texData, 1,0);
-        appendVertex2(texData, 1, 1);
-        //addVertex(0,0,0);
-        //addVertex(1,1,0);
-        //addVertex(0,1,1);
-
-        //addVertex(0,1,0);
-        //addVertex(0,0,1);
-        //addVertex(1,0,1);
-        //addVertex(1,1,1);
-        //addVertex(0,1,1);
-
-
-    }
 };
 
 class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
@@ -258,6 +203,7 @@ private:
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer m_logoVbo;
     QOpenGLBuffer texVbo;
+    QOpenGLBuffer faceidVbo; // stores tripplets of floats
     QOpenGLTexture* tex1 = 0;
     QOpenGLFramebufferObject* fbo = 0;
     QImage snapshotImage;
