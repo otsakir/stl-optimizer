@@ -402,7 +402,7 @@ void GLWidget::initializeGL()
     //QOpenGLTexture
 
     // Prepare texture
-    tex1 = new QOpenGLTexture(QImage("/home/nando/Projects/gui-opengl/build/tex1.png").mirrored());
+    tex1 = new QOpenGLTexture(QImage("tex1.png").mirrored());
     tex1->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
     tex1->setMagnificationFilter(QOpenGLTexture::Linear);
 
@@ -480,7 +480,7 @@ void GLWidget::paintGL()
     idProjectionProgram->setUniformValue(idProjection_mvMatrixLoc, mview);
     idProjectionProgram->setUniformValue(idProjection_projMatrixLoc, m_proj);
     fbo->bind();
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
     snapshotImage = fbo->toImage();
     fbo->release();
