@@ -54,7 +54,9 @@
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QOpenGLVertexArrayObject>
+#include <QOpenGLFramebufferObject>
 #include <QOpenGLBuffer>
+#include <QOpenGLTexture>
 #include <QMatrix4x4>
 //#include "logo.h"
 
@@ -62,9 +64,23 @@ QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
 
 #include <qopengl.h>
 
+
+// initial point in world or local coords
+//
+/*
+class ProjectedPoint : public QVector3D
+{
+public:
+    //Fragment(float x, float y, float z) : QVector3D(x,y,z) {};
+    ProjectedPoint(QVector3D vec) : QVector3D(vec) {};
+};
+*/
+
 class Mesh
 {
     QVector<QVector3D> points;
+
+    //QVector<Fragment>
 
     void appendVector3D(QVector3D& vec)
     {
@@ -79,6 +95,9 @@ public:
     int vertexCount = 0;
     QColor meshColor = QColor(0,255,0); // will be set as a uniform value
 
+    QVector<GLfloat> texData;
+
+
     void addVertex(GLfloat x, GLfloat y, GLfloat z)
     {
         //data.append(x);
@@ -89,6 +108,49 @@ public:
 
         points.append(QVector3D(x,y,z));
     }
+
+    // put two float in a single step
+    void appendVertex2(QVector<GLfloat>& dest, GLfloat x, GLfloat y)
+    {
+        dest.append(x);
+        dest.append(y);
+    }
+
+
+    /*
+    void projectPoint(QMatrix4x4& mvp_mat)
+    {
+        QGLFramebufferObject
+    }
+    */
+
+    // transform mesh points according to given model-view-projection transformation matrix and
+    // then convert to NDC (normalized device coordinates) by W devision
+    /*
+    void project(QMatrix4x4 mvp_mat)
+    {
+        QVector<Fragment> ndcPoints; // points transformed to NDC coordinates
+
+        for (int i=0; i<points.size(); i++)
+        {
+            int triangle_i = i % 3;
+            QVector4D ndcPoint = mvp_mat * points[i];
+            float w = ndcPoint.w();
+            if (ndcPoint.x() <= w && ndcPoint.x() >= -w)
+                if (ndcPoint.y() <= w && ndcPoint.y() >= -w)
+                    if (ndcPoint.z() <= w && ndcPoint.z() >= -w)
+                    {
+
+                    }
+
+            ndcPoint.setX( ndcPoint.x()/ndcPoint.w());
+            ndcPoint.setY( ndcPoint.y()/ndcPoint.w());
+            ndcPoint.setZ( ndcPoint.x()/ndcPoint.w());
+
+        }
+
+    }
+    */
 
     // prepare the raw data array of vertices ready to be fed to the GPU
     void swallow()
@@ -121,11 +183,16 @@ public:
         //data.resize(3 * 6); // 8 point, 3 floats each
 
         addVertex(0,0,0);
-        addVertex(1,0,0);
-        addVertex(1,1,0);
-        addVertex(0,0,0);
-        addVertex(1,1,0);
-        addVertex(0,1,1);
+        addVertex(0.3,0,0);
+        addVertex(0.3,0.3,0);
+
+
+        appendVertex2(texData, 0,0);
+        appendVertex2(texData, 1,0);
+        appendVertex2(texData, 1, 1);
+        //addVertex(0,0,0);
+        //addVertex(1,1,0);
+        //addVertex(0,1,1);
 
         //addVertex(0,1,0);
         //addVertex(0,0,1);
@@ -173,6 +240,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
 
+
 private:
     void setupVertexAttribs();
 
@@ -189,6 +257,10 @@ private:
 
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer m_logoVbo;
+    QOpenGLBuffer texVbo;
+    QOpenGLTexture* tex1 = 0;
+    QOpenGLFramebufferObject* fbo = 0;
+    QImage snapshotImage;
     QOpenGLShaderProgram *m_program = nullptr;
     int m_projMatrixLoc = 0;
     int m_mvMatrixLoc = 0;
