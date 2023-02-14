@@ -64,10 +64,14 @@ Mesh::Mesh()
     addVertex(0.3,0,0);
     addVertex(0.3,0.3,0);
 
+    addVertex(0.3,0.3,0);
+    addVertex(0,0.3,0);
+    addVertex(0,0,0);
 
     appendVertex2(texData, 0,0);
     appendVertex2(texData, 1,0);
     appendVertex2(texData, 1, 1);
+
     //addVertex(0,0,0);
     //addVertex(1,1,0);
     //addVertex(0,1,1);
@@ -79,7 +83,20 @@ Mesh::Mesh()
     //addVertex(0,1,1);
 
     // for three vertices, we put the same "color" i.e. faceid three times
-    QVector3D v = hideIntInVector3D(0xffffff);
+    QVector3D v = hideIntInVector3D(0xff);
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+    faceidData.append(v.x());
+    faceidData.append(v.y());
+    faceidData.append(v.z());
+
+    v = hideIntInVector3D(0xff00);
     faceidData.append(v.x());
     faceidData.append(v.y());
     faceidData.append(v.z());
@@ -234,11 +251,9 @@ static const char *vertexShaderSource =
     "attribute vec4 vertex;\n"
     "attribute vec3 normal;\n"
     "attribute vec2 tex;\n"
-    "attribute vec3 faceid;\n"
     "varying vec3 vert;\n"
     "varying vec3 vertNormal;\n"
     "varying vec2 texCoord;\n"
-    "varying vec3 vfaceid;\n"
     "uniform mat4 projMatrix;\n"
     "uniform mat4 mvMatrix;\n"
     "uniform mat3 normalMatrix;\n"
@@ -246,7 +261,6 @@ static const char *vertexShaderSource =
     "   vert = vertex.xyz;\n"
     "   vertNormal = normalize(normalMatrix * normal);\n"
     "   texCoord = tex;\n"
-    "   vfaceid = faceid;\n"
     "   gl_Position = projMatrix * mvMatrix * vertex;\n"
     "}\n";
 
@@ -254,16 +268,74 @@ static const char *fragmentShaderSource =
     "varying highp vec3 vert;\n"
     "varying vec3 vertNormal;\n"
     "varying vec2 texCoord;\n"
-    "varying vec3 vfaceid;\n"
     "uniform sampler2D texture;\n"
     "uniform highp vec4 rgbColor;\n"
     "void main() {\n"
     "highp vec3 lightDir = vec3(0.0, 0.0, -1.0);\n"
     "highp float intensity =  dot(-lightDir, vertNormal);\n"
     //"   gl_FragColor = rgbColor*intensity;\n"
-    //"   gl_FragColor = texture2D(texture, texCoord);\n"
-    "gl_FragColor = vec4(vfaceid, 1.0);\n"
+    "   gl_FragColor = texture2D(texture, texCoord);\n"
     "}\n";
+
+static const char *vshaderIdProjection =
+    "attribute vec4 vertex;\n"
+    "attribute vec3 faceid;\n"
+    "varying vec3 vfaceid;\n"
+    "uniform mat4 projMatrix;\n"
+    "uniform mat4 mvMatrix;\n"
+    "void main() {\n"
+    "   vfaceid = faceid;\n"
+    "   gl_Position = projMatrix * mvMatrix * vertex;\n"
+    "}\n";
+
+static const char *fshaderIdProjection =
+    "varying vec3 vfaceid;\n"
+    "void main() {\n"
+    "gl_FragColor = vec4(vfaceid, 1.0);\n"
+    //"gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+    "}\n";
+
+void GLWidget::setupIdProjectionProgram()
+{
+    idProjection_vao.create();
+    idProjection_vao.bind();
+
+    idProjectionProgram = new QOpenGLShaderProgram;
+    idProjectionProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vshaderIdProjection);
+    idProjectionProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fshaderIdProjection);
+    idProjectionProgram->bindAttributeLocation("vertex", 0);
+    idProjectionProgram->bindAttributeLocation("faceid", 1);
+    idProjectionProgram->link();
+
+    idProjectionProgram->bind();
+    idProjection_projMatrixLoc = idProjectionProgram->uniformLocation("projMatrix");
+    idProjection_mvMatrixLoc = idProjectionProgram->uniformLocation("mvMatrix");
+
+    QOpenGLVertexArrayObject::Binder vao_binder(&idProjection_vao);
+    QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+    f->glEnableVertexAttribArray(0);
+    f->glEnableVertexAttribArray(1);
+
+    // Setup our vertex buffer object.
+    m_logoVbo.bind();
+    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
+    m_logoVbo.release();
+
+
+    //texVbo.create();
+    //texVbo.bind();
+    //texVbo.allocate(mesh_cube.texData.constData(), mesh_cube.data.size()* sizeof(GLfloat));
+
+    faceidVbo.create();
+    faceidVbo.bind();
+    faceidVbo.allocate(mesh_cube.faceidData.constData(), mesh_cube.faceidData.size() * sizeof(GLfloat));
+    f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), nullptr);
+    faceidVbo.release();
+
+
+    idProjectionProgram->release();
+    idProjection_vao.release();
+}
 
 void GLWidget::initializeGL()
 {
@@ -285,7 +357,6 @@ void GLWidget::initializeGL()
     m_program->bindAttributeLocation("vertex", 0);
     m_program->bindAttributeLocation("normal", 1);
     m_program->bindAttributeLocation("tex", 2);
-    m_program->bindAttributeLocation("faceid", 3);
     m_program->link();
 
     m_program->bind();
@@ -299,7 +370,8 @@ void GLWidget::initializeGL()
     // at all. Nonetheless the below code works in all cases and makes
     // sure there is a VAO when one is needed.
     m_vao.create();
-    QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+    m_vao.bind();
+    //QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
 
     mesh_cube.swallow();
 
@@ -312,32 +384,7 @@ void GLWidget::initializeGL()
     texVbo.bind();
     texVbo.allocate(mesh_cube.texData.constData(), mesh_cube.data.size()* sizeof(GLfloat));
 
-    faceidVbo.create();
-    faceidVbo.bind();
-    faceidVbo.allocate(mesh_cube.faceidData.constData(), mesh_cube.faceidData.size() * sizeof(GLfloat));
-
     // Store the vertex attribute bindings for the program.
-    setupVertexAttribs();
-
-    //QOpenGLTexture
-
-    // Prepare texture
-    tex1 = new QOpenGLTexture(QImage("/home/nando/Projects/gui-opengl/build/tex1.png").mirrored());
-    tex1->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-    tex1->setMagnificationFilter(QOpenGLTexture::Linear);
-
-
-    // Our camera never changes in this example.
-    m_camera.setToIdentity();
-    //m_camera.translate(0, 0, -1);
-    //m_camera.rotate(180, QVector3D(0,1,0));
-    //m_camera.translate(0, 0, 10);
-
-    m_program->release();
-}
-
-void GLWidget::setupVertexAttribs()
-{
     m_logoVbo.bind();
     QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
     f->glEnableVertexAttribArray(0);
@@ -352,12 +399,25 @@ void GLWidget::setupVertexAttribs()
     f->glVertexAttribPointer(2, 2, GL_FLOAT, GL_TRUE, 2 * sizeof(GLfloat), nullptr);
     texVbo.release();
 
-    faceidVbo.bind();
-    f->glEnableVertexAttribArray(3);
-    f->glVertexAttribPointer(3, 3, GL_FLOAT, GL_TRUE, 3 * sizeof(GLfloat), nullptr);
-    faceidVbo.release();
+    //QOpenGLTexture
 
+    // Prepare texture
+    tex1 = new QOpenGLTexture(QImage("/home/nando/Projects/gui-opengl/build/tex1.png").mirrored());
+    tex1->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+    tex1->setMagnificationFilter(QOpenGLTexture::Linear);
+
+    // Our camera never changes in this example.
+    m_camera.setToIdentity();
+    //m_camera.translate(0, 0, -1);
+    //m_camera.rotate(180, QVector3D(0,1,0));
+    //m_camera.translate(0, 0, 10);
+
+    m_program->release();
+    m_vao.release();
+
+    setupIdProjectionProgram();
 }
+
 
 void GLWidget::paintGL()
 {
@@ -365,8 +425,8 @@ void GLWidget::paintGL()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-
-    QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+    //QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+    m_vao.bind();
     m_program->bind();
 
     m_camera.setToIdentity();
@@ -397,8 +457,6 @@ void GLWidget::paintGL()
     QVector3D origin = near.unproject(mview, m_proj, viewport);
     QVector3D dir = far.unproject(mview, m_proj, viewport) - origin;
 
-
-
     m_program->setUniformValue(m_projMatrixLoc, m_proj);
     m_program->setUniformValue(m_mvMatrixLoc, mview);
     //m_program->setUniformValue(rgbColorLoc, QVector3D(0.0,0.0,1.0));
@@ -413,13 +471,21 @@ void GLWidget::paintGL()
 
     glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
 
-    fbo->bind();
-    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
-
-    snapshotImage = fbo->toImage();
-
-
     m_program->release();
+    m_vao.release();
+
+    // render triangle ids to image
+    idProjection_vao.bind();
+    idProjectionProgram->bind();
+    idProjectionProgram->setUniformValue(idProjection_mvMatrixLoc, mview);
+    idProjectionProgram->setUniformValue(idProjection_projMatrixLoc, m_proj);
+    fbo->bind();
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
+    snapshotImage = fbo->toImage();
+    fbo->release();
+    idProjection_vao.release();
+
 }
 
 void GLWidget::resizeGL(int w, int h)

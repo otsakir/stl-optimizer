@@ -173,6 +173,8 @@ public slots:
 
     void cleanup();
 
+    void setupIdProjectionProgram();
+
 signals:
     void xRotationChanged(int angle);
     void yRotationChanged(int angle);
@@ -187,7 +189,6 @@ protected:
 
 
 private:
-    void setupVertexAttribs();
 
     bool m_core;
     int m_xRot = 0;
@@ -197,21 +198,29 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     QPoint m_lastPos;
-    //Logo m_logo;
     Mesh mesh_cube;
 
+    // visible rendering program
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer m_logoVbo;
     QOpenGLBuffer texVbo;
-    QOpenGLBuffer faceidVbo; // stores tripplets of floats
     QOpenGLTexture* tex1 = 0;
     QOpenGLFramebufferObject* fbo = 0;
-    QImage snapshotImage;
     QOpenGLShaderProgram *m_program = nullptr;
     int m_projMatrixLoc = 0;
     int m_mvMatrixLoc = 0;
     int rgbColorLoc = 0;
     int m_normalMatrixLoc = 0;
+
+    // idProjection program
+    QOpenGLShaderProgram *idProjectionProgram = nullptr; // shader program that will blit with triangle id instead of color
+    QOpenGLVertexArrayObject idProjection_vao;
+    QOpenGLBuffer faceidVbo; // stores tripplets of floats
+    int idProjection_projMatrixLoc = 0; // uniform locations
+    int idProjection_mvMatrixLoc = 0;   // ...
+    QImage snapshotImage;
+
+    // transformations
     QMatrix4x4 m_proj;
     QMatrix4x4 m_camera;
     QMatrix4x4 m_world;
