@@ -234,7 +234,7 @@ void GLWidget::setupPointsProgram()
     Utils::Loader loader;
 
     loader.loadStl("box.stl", mesh_cube);
-    mesh_cube.chew(Core::Mesh::POINTS_ONLY);
+    mesh_cube.chew({true, false, true});
 
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
 
@@ -253,8 +253,6 @@ void GLWidget::setupPointsProgram()
 
     m_vao.create();
     m_vao.bind();
-
-    mesh_cube.chew(Core::Mesh::POINTS_ONLY);
 
     // Setup our vertex buffer object.
     cube_vbo.create();
@@ -297,7 +295,7 @@ void GLWidget::setupIdProjectionProgram()
 
     faceidVbo.create();
     faceidVbo.bind();
-    faceidVbo.allocate(mesh_cube.getSwallowedData().constData(), mesh_cube.getSwallowedData().size() * sizeof(GLfloat));
+    faceidVbo.allocate(mesh_cube.getFaceidMap().constData(), mesh_cube.getFaceidMap().size() * sizeof(GLfloat));
     f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), nullptr);
     faceidVbo.release();
 
