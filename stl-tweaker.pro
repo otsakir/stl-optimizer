@@ -1,12 +1,15 @@
 HEADERS       = glwidget.h \
+                loader.h \
+                mesh.h \
+                stl_reader.h \
                 window.h \
-                mainwindow.h \
-                logo.h
+                mainwindow.h
 SOURCES       = glwidget.cpp \
+                loader.cpp \
                 main.cpp \
+                mesh.cpp \
                 window.cpp \
-                mainwindow.cpp \
-                logo.cpp
+                mainwindow.cpp
 
 QT           += widgets
 

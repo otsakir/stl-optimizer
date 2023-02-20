@@ -58,96 +58,16 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLTexture>
 #include <QMatrix4x4>
-//#include "logo.h"
+
+#include "mesh.h"
+
 
 QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
 
 #include <qopengl.h>
 
 
-// initial point in world or local coords
-//
-/*
-class ProjectedPoint : public QVector3D
-{
-public:
-    //Fragment(float x, float y, float z) : QVector3D(x,y,z) {};
-    ProjectedPoint(QVector3D vec) : QVector3D(vec) {};
-};
-*/
 
-class Mesh
-{
-    QVector<QVector3D> points;
-
-    //QVector<Fragment>
-
-    void appendVector3D(QVector3D& vec)
-    {
-        data.append(vec.x());
-        data.append(vec.y());
-        data.append(vec.z());
-        vertexCount ++;
-    }
-
-public:
-    QVector<GLfloat> data;
-    int vertexCount = 0;
-    QColor meshColor = QColor(0,255,0); // will be set as a uniform value
-
-    QVector<GLfloat> texData;
-    QVector<GLfloat> faceidData;
-
-
-    void addVertex(GLfloat x, GLfloat y, GLfloat z)
-    {
-        //data.append(x);
-        //data.append(y);
-        //data.append(z);
-
-        //vertexCount ++;
-
-        points.append(QVector3D(x,y,z));
-    }
-
-    // put two float in a single step
-    void appendVertex2(QVector<GLfloat>& dest, GLfloat x, GLfloat y)
-    {
-        dest.append(x);
-        dest.append(y);
-    }
-
-    // prepare the raw data array of vertices ready to be fed to the GPU
-    void swallow()
-    {
-        data.clear();
-        vertexCount = 0;
-
-        // process points in groups of 3 assuming they're given as triangles
-        int face_count = points.size() / 3;
-        for (int i=0; i < face_count; i++)
-        {
-            QVector3D& p1 = points[i*3];
-            QVector3D& p2 = points[i*3+1];
-            QVector3D& p3 = points[i*3+2];
-
-            // first calculate the normal for this triangle
-            QVector3D n = QVector3D::normal( p1, p2, p3);
-            appendVector3D(p1);
-            appendVector3D(n);
-            appendVector3D(p2);
-            appendVector3D(n);
-            appendVector3D(p3);
-            appendVector3D(n);
-        }
-
-    }
-
-    Mesh();
-    static QVector3D hideIntInVector3D(unsigned int i);
-    static unsigned int unhideIntFromVector3D(QVector3D& v);
-
-};
 
 class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
@@ -173,6 +93,7 @@ public slots:
 
     void cleanup();
 
+    void setupPointsProgram();
     void setupIdProjectionProgram();
 
 signals:
@@ -198,11 +119,11 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     QPoint m_lastPos;
-    Mesh mesh_cube;
+    Core::Mesh mesh_cube;
 
     // visible rendering program
     QOpenGLVertexArrayObject m_vao;
-    QOpenGLBuffer m_logoVbo;
+    QOpenGLBuffer cube_vbo;
     QOpenGLBuffer texVbo;
     QOpenGLTexture* tex1 = 0;
     QOpenGLFramebufferObject* fbo = 0;

@@ -33,7 +33,7 @@ void Loader::loadStl(const char* filename, Core::Mesh& new_mesh)
         // iterate over face/triangle corners
         for (unsigned int corner_i = 0; corner_i < triangle.PointCount; corner_i++)
         {
-            triangle.points[corner_i] = reader_mesh.tri_corner_ind(triangle_i, 0);
+            triangle.points[corner_i] = reader_mesh.tri_corner_ind(triangle_i, corner_i);
         }
         new_mesh.faces.append(triangle);
     }

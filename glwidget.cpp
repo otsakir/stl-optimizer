@@ -56,93 +56,7 @@
 
 #include <QDebug>
 
-Mesh::Mesh()
-{
-    //data.resize(3 * 6); // 8 point, 3 floats each
-
-    addVertex(0,0,0);
-    addVertex(0.3,0,0);
-    addVertex(0.3,0.3,0);
-
-    addVertex(0.3,0.3,0);
-    addVertex(0,0.3,0);
-    addVertex(0,0,0);
-
-    appendVertex2(texData, 0,0);
-    appendVertex2(texData, 1,0);
-    appendVertex2(texData, 1, 1);
-
-    //addVertex(0,0,0);
-    //addVertex(1,1,0);
-    //addVertex(0,1,1);
-
-    //addVertex(0,1,0);
-    //addVertex(0,0,1);
-    //addVertex(1,0,1);
-    //addVertex(1,1,1);
-    //addVertex(0,1,1);
-
-    // for three vertices, we put the same "color" i.e. faceid three times
-    QVector3D v = hideIntInVector3D(0xff);
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-    v = hideIntInVector3D(0xff00);
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-    faceidData.append(v.x());
-    faceidData.append(v.y());
-    faceidData.append(v.z());
-
-}
-
-
-QVector3D Mesh::hideIntInVector3D(unsigned int i)
-{
-    QVector3D v;
-    unsigned int MAX_HIDDEN = 16777216; // i.e. 2^24 or 3*8bit precision offered by RGB colors up to 255 for each component
-
-    if (i >= MAX_HIDDEN)
-    {
-        qDebug() << "Error. Cannot hide such a big int in a Vector3D";
-        return v;
-    }
-    unsigned char i_part1 = i & 0xff;
-    unsigned char i_part2 = (i >> 8) & 0xff;
-    unsigned char i_part3 = (i >> 16) & 0xff;
-
-    v.setX( ((float)i_part1)/255 );
-    v.setY( ((float)i_part2)/255 );
-    v.setZ( ((float)i_part3)/255 );
-
-    return v;
-}
-
-unsigned int Mesh::unhideIntFromVector3D(QVector3D& v)
-{
-    unsigned char x = v.x() * 255.0;
-    unsigned char y = v.y() * 255.0;
-    unsigned char z = v.z() * 255.0;
-
-    unsigned int i = (unsigned int)z << 16 | (unsigned int)y << 8 | (unsigned int)x;
-
-    return i;
-}
+#include "loader.h"
 
 
 
@@ -163,6 +77,9 @@ GLWidget::GLWidget(QWidget *parent)
 
 GLWidget::~GLWidget()
 {
+    //Utils::Loader loader;
+    //loader.loadStl()
+    //mesh:
     cleanup();
 }
 
@@ -238,7 +155,7 @@ void GLWidget::cleanup()
     if (m_program == nullptr)
         return;
     makeCurrent();
-    m_logoVbo.destroy();
+    cube_vbo.destroy();
     delete m_program;
     m_program = nullptr;
     if (tex1)
@@ -277,6 +194,22 @@ static const char *fragmentShaderSource =
     "   gl_FragColor = texture2D(texture, texCoord);\n"
     "}\n";
 
+static const char *vshaderPointsOnly =
+    "attribute vec4 vertex;\n"
+    "varying vec3 vert;\n"
+    "uniform mat4 projMatrix;\n"
+    "uniform mat4 mvMatrix;\n"
+    "void main() {\n"
+    "   vert = vertex.xyz;\n"
+    "   gl_Position = projMatrix * mvMatrix * vertex;\n"
+    "}\n";
+
+static const char *fshaderPointsOnly =
+    "varying highp vec3 vert;\n"
+    "void main() {\n"
+    "   gl_FragColor = vec4(1.0, 0, 0, 1);\n"
+    "}\n";
+
 static const char *vshaderIdProjection =
     "attribute vec4 vertex;\n"
     "attribute vec3 faceid;\n"
@@ -294,6 +227,47 @@ static const char *fshaderIdProjection =
     "gl_FragColor = vec4(vfaceid, 1.0);\n"
     //"gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
     "}\n";
+
+void GLWidget::setupPointsProgram()
+{
+    QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+    Utils::Loader loader;
+
+    loader.loadStl("box.stl", mesh_cube);
+    mesh_cube.chew(Core::Mesh::POINTS_ONLY);
+
+    connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
+
+    initializeOpenGLFunctions();
+    glClearColor(0, 0, 0, m_transparent ? 0 : 1);
+
+    m_program = new QOpenGLShaderProgram;
+    m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vshaderPointsOnly);
+    m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fshaderPointsOnly);
+    m_program->bindAttributeLocation("vertex", 0);
+    m_program->link();
+
+    m_program->bind();
+    m_projMatrixLoc = m_program->uniformLocation("projMatrix");
+    m_mvMatrixLoc = m_program->uniformLocation("mvMatrix");
+
+    m_vao.create();
+    m_vao.bind();
+
+    mesh_cube.chew(Core::Mesh::POINTS_ONLY);
+
+    // Setup our vertex buffer object.
+    cube_vbo.create();
+    cube_vbo.bind();
+    cube_vbo.allocate(mesh_cube.getSwallowedData().constData(), mesh_cube.getSwallowedData().size() * sizeof(GLfloat));
+    f->glEnableVertexAttribArray(0);
+    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat),nullptr);
+    cube_vbo.release();
+
+    m_program->release();
+    m_vao.release();
+
+}
 
 void GLWidget::setupIdProjectionProgram()
 {
@@ -317,21 +291,15 @@ void GLWidget::setupIdProjectionProgram()
     f->glEnableVertexAttribArray(1);
 
     // Setup our vertex buffer object.
-    m_logoVbo.bind();
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
-    m_logoVbo.release();
-
-
-    //texVbo.create();
-    //texVbo.bind();
-    //texVbo.allocate(mesh_cube.texData.constData(), mesh_cube.data.size()* sizeof(GLfloat));
+    cube_vbo.bind();
+    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), nullptr);
+    cube_vbo.release();
 
     faceidVbo.create();
     faceidVbo.bind();
-    faceidVbo.allocate(mesh_cube.faceidData.constData(), mesh_cube.faceidData.size() * sizeof(GLfloat));
+    faceidVbo.allocate(mesh_cube.getSwallowedData().constData(), mesh_cube.getSwallowedData().size() * sizeof(GLfloat));
     f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), nullptr);
     faceidVbo.release();
-
 
     idProjectionProgram->release();
     idProjection_vao.release();
@@ -339,82 +307,7 @@ void GLWidget::setupIdProjectionProgram()
 
 void GLWidget::initializeGL()
 {
-    // In this example the widget's corresponding top-level window can change
-    // several times during the widget's lifetime. Whenever this happens, the
-    // QOpenGLWidget's associated context is destroyed and a new one is created.
-    // Therefore we have to be prepared to clean up the resources on the
-    // aboutToBeDestroyed() signal, instead of the destructor. The emission of
-    // the signal will be followed by an invocation of initializeGL() where we
-    // can recreate all resources.
-    connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
-
-    initializeOpenGLFunctions();
-    glClearColor(0, 0, 0, m_transparent ? 0 : 1);
-
-    m_program = new QOpenGLShaderProgram;
-    m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
-    m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
-    m_program->bindAttributeLocation("vertex", 0);
-    m_program->bindAttributeLocation("normal", 1);
-    m_program->bindAttributeLocation("tex", 2);
-    m_program->link();
-
-    m_program->bind();
-    m_projMatrixLoc = m_program->uniformLocation("projMatrix");
-    m_mvMatrixLoc = m_program->uniformLocation("mvMatrix");
-    m_normalMatrixLoc = m_program->uniformLocation("normalMatrix");
-    rgbColorLoc = m_program->uniformLocation("rgbColor");
-
-    // Create a vertex array object. In OpenGL ES 2.0 and OpenGL 2.x
-    // implementations this is optional and support may not be present
-    // at all. Nonetheless the below code works in all cases and makes
-    // sure there is a VAO when one is needed.
-    m_vao.create();
-    m_vao.bind();
-    //QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
-
-    mesh_cube.swallow();
-
-    // Setup our vertex buffer object.
-    m_logoVbo.create();
-    m_logoVbo.bind();
-    m_logoVbo.allocate(mesh_cube.data.constData(), mesh_cube.data.size() * sizeof(GLfloat));
-
-    texVbo.create();
-    texVbo.bind();
-    texVbo.allocate(mesh_cube.texData.constData(), mesh_cube.data.size()* sizeof(GLfloat));
-
-    // Store the vertex attribute bindings for the program.
-    m_logoVbo.bind();
-    QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
-    f->glEnableVertexAttribArray(0);
-    f->glEnableVertexAttribArray(1);
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat),
-                             nullptr);
-    f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), reinterpret_cast<void *>(3 * sizeof(GLfloat)));
-    m_logoVbo.release();
-
-    texVbo.bind();
-    f->glEnableVertexAttribArray(2);
-    f->glVertexAttribPointer(2, 2, GL_FLOAT, GL_TRUE, 2 * sizeof(GLfloat), nullptr);
-    texVbo.release();
-
-    //QOpenGLTexture
-
-    // Prepare texture
-    tex1 = new QOpenGLTexture(QImage("tex1.png").mirrored());
-    tex1->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-    tex1->setMagnificationFilter(QOpenGLTexture::Linear);
-
-    // Our camera never changes in this example.
-    m_camera.setToIdentity();
-    //m_camera.translate(0, 0, -1);
-    //m_camera.rotate(180, QVector3D(0,1,0));
-    //m_camera.translate(0, 0, 10);
-
-    m_program->release();
-    m_vao.release();
-
+    setupPointsProgram();
     setupIdProjectionProgram();
 }
 
@@ -450,26 +343,17 @@ void GLWidget::paintGL()
     m_world.rotate(m_zRot / 16.0f, 0, 0, 1);
 
     QMatrix4x4 mview = m_camera * m_world;
-    QRect viewport(0,0,400,400);
 
     QVector3D near(m_lastPos.x(), 400-m_lastPos.y(), 0.);
     QVector3D far(m_lastPos.x(), 400-m_lastPos.y(), 1.);
-    QVector3D origin = near.unproject(mview, m_proj, viewport);
-    QVector3D dir = far.unproject(mview, m_proj, viewport) - origin;
 
     m_program->setUniformValue(m_projMatrixLoc, m_proj);
     m_program->setUniformValue(m_mvMatrixLoc, mview);
-    //m_program->setUniformValue(rgbColorLoc, QVector3D(0.0,0.0,1.0));
-    m_program->setUniformValue(rgbColorLoc, mesh_cube.meshColor);
 
-    //QMatrix3x3 normalMatrix = m_world.normalMatrix();
     QMatrix3x3 normalMatrix =  m_world.toGenericMatrix<3,3>();
     m_program->setUniformValue(m_normalMatrixLoc, normalMatrix);
 
-    // Render with texture
-    tex1->bind();
-
-    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
+    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
 
     m_program->release();
     m_vao.release();
@@ -481,7 +365,7 @@ void GLWidget::paintGL()
     idProjectionProgram->setUniformValue(idProjection_projMatrixLoc, m_proj);
     fbo->bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.vertexCount);
+    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
     snapshotImage = fbo->toImage();
     fbo->release();
     idProjection_vao.release();

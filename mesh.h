@@ -26,16 +26,39 @@ public:
 
 typedef Face<3> Triangle;
 
+
 class Mesh
 {
     QVector<QVector3D> points;
     QVector<Triangle> faces;
 
+    /// data ready to be put into a vertex buffer
+    QVector<float> swallowedData;
+
 public:
+    typedef Triangle FaceType;
+
+    enum ChewType
+    {
+        POINTS_ONLY,
+        POINTS_AND_NORMALS,
+
+        CHEW_TYPE_UNSET
+    };
+
     Mesh();
-    void clear();
+
+    void chew(ChewType chewType=POINTS_ONLY); // process 'high-level' vertex data to produce raw values for vertex buffers
+    ChewType chewType(); // returns the chew type used for processing vertex info
+    void clear(); // clear source arrays of vertices i.e. points, faces etc. TODO - shall we also clear swallowedData ?
+    const QVector<float>& getSwallowedData();
+    int chewedCount();
 
     friend class Utils::Loader;
+
+private:
+    ChewType chewTypeUsed = CHEW_TYPE_UNSET;
+
 };
 
 } // namespace Core
