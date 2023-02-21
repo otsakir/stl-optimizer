@@ -42,7 +42,6 @@ void RenderState::setupVao()
         Attribute& attr = attributes[attr_i];
         QOpenGLBuffer& vbo = attr.vbo;
 
-        vbo.create();
         vbo.bind();
         f->glEnableVertexAttribArray(attr_i);
         f->glVertexAttribPointer(attr_i, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat),nullptr); // use three floats and no stride by convention
@@ -53,12 +52,6 @@ void RenderState::setupVao()
 
 void RenderState::cleanup()
 {
-    // makeCurrent(); // TOCHECK - don't forget to have called makeCurrent() on the oglwidget
-    for (Attribute& attr : attributes)
-    {
-        attr.vbo.destroy();
-    }
-
     vao.destroy();
 
     if (program)
@@ -66,7 +59,6 @@ void RenderState::cleanup()
         delete program;
         program = nullptr;
     }
-    //doneCurrent(); // TOCHECK - this should also be called at the end
 }
 
 

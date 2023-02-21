@@ -152,14 +152,18 @@ void GLWidget::setZTranslation(int length)
 
 void GLWidget::cleanup()
 {
-    makeCurrent();
+    if (! cleanedUp)
+    {
+        cleanedUp = true;
+        makeCurrent();
 
-    renderState_idProjection.cleanup();
-    renderState_model.cleanup();
-    pointsVbo.destroy();
-    faceidVbo.destroy();
+        pointsVbo.destroy();
+        faceidVbo.destroy();
+        renderState_idProjection.cleanup();
+        renderState_model.cleanup();
 
-    doneCurrent();
+        doneCurrent();
+    }
 }
 
 
@@ -252,6 +256,7 @@ void GLWidget::paintGL()
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
+    renderState_idProjection.program->bind();
     renderState_idProjection.program->setUniformValue(0, mvpTransformation);
     fbo->bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -261,12 +266,12 @@ void GLWidget::paintGL()
     renderState_idProjection.vao.release();
 
     // Render model
-    renderState_idProjection.vao.bind();
-    renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, mvpTransformation);
+    renderState_model.vao.bind();
+    renderState_model.program->bind();
+    renderState_model.program->setUniformValue(0, mvpTransformation);
     glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
-    renderState_idProjection.program->release();
-    renderState_idProjection.vao.release();
+    renderState_model.program->release();
+    renderState_model.vao.release();
 }
 
 void GLWidget::paintUIOverlay()

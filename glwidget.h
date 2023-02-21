@@ -74,6 +74,7 @@ class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
 
+    bool cleanedUp = false;
 public:
     GLWidget(QWidget *parent = nullptr);
     ~GLWidget();
