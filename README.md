@@ -34,4 +34,11 @@ face.a, face.b, face.c
 ### Implementation
 
 
+### Tips
+
+#### VAO, VBO and state
+
+VAOs keep state about VBOs among others. The point when this state is stored is when _glVertexAttribPointer()_ is called. Thus, if you want to unbind the VBO before unbinding the VAO, you won't break anything. That is, the VBO will _still_ be related to the VAO.
+
+
 

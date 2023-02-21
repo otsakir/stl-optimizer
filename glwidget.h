@@ -60,6 +60,7 @@
 #include <QMatrix4x4>
 
 #include "mesh.h"
+#include "renderstate.h"
 
 
 QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
@@ -93,9 +94,6 @@ public slots:
 
     void cleanup();
 
-    void setupPointsProgram();
-    void setupIdProjectionProgram();
-
 signals:
     void xRotationChanged(int angle);
     void yRotationChanged(int angle);
@@ -104,6 +102,7 @@ signals:
 protected:
     void initializeGL() override;
     void paintGL() override;
+    void paintUIOverlay();
     void resizeGL(int width, int height) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -121,31 +120,48 @@ private:
     QPoint m_lastPos;
     Core::Mesh mesh_cube;
 
+    RenderState renderState_model;
+    RenderState renderState_idProjection;
+
+    QOpenGLBuffer pointsVbo;
+    QOpenGLBuffer faceidVbo;
+
     // visible rendering program
-    QOpenGLVertexArrayObject m_vao;
-    QOpenGLBuffer cube_vbo;
-    QOpenGLBuffer texVbo;
-    QOpenGLTexture* tex1 = 0;
     QOpenGLFramebufferObject* fbo = 0;
-    QOpenGLShaderProgram *m_program = nullptr;
-    int m_projMatrixLoc = 0;
-    int m_mvMatrixLoc = 0;
-    int rgbColorLoc = 0;
-    int m_normalMatrixLoc = 0;
 
     // idProjection program
-    QOpenGLShaderProgram *idProjectionProgram = nullptr; // shader program that will blit with triangle id instead of color
-    QOpenGLVertexArrayObject idProjection_vao;
-    QOpenGLBuffer faceidVbo; // stores tripplets of floats
-    int idProjection_projMatrixLoc = 0; // uniform locations
-    int idProjection_mvMatrixLoc = 0;   // ...
     QImage snapshotImage;
+    int selectedFace = -1; // id of the clicked face. -1 if none is selected
+
+    // ui overlay rendering
+    QOpenGLShaderProgram* uiOverlayProgram = nullptr;
+    QOpenGLVertexArrayObject uiOverlay_vao;
+    QOpenGLBuffer uiOverlayVbo;
 
     // transformations
     QMatrix4x4 m_proj;
     QMatrix4x4 m_camera;
     QMatrix4x4 m_world;
+    QMatrix4x4 mvpTransformation;
     static bool m_transparent;
+};
+
+// contains ui elements to be drawn over the model
+class UIMeshOverlay
+{
+    Core::Mesh mesh;
+
+public:
+
+    UIMeshOverlay()
+    {
+        QVector<QVector3D>& points = mesh.getPoints();
+        points.append(QVector3D(0,0,0));
+        points.append(QVector3D(5,0,0));
+        //points.append(QVector3D(5,5,0));
+
+        mesh.chew();
+    }
 };
 
 #endif

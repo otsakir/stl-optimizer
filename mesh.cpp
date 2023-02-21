@@ -25,11 +25,11 @@ QVector3D hideIntInVector3D(unsigned int i)
     return v;
 }
 
-unsigned int unhideIntFromVector3D(QVector3D& v)
+unsigned int unhideIntFromVector3D(QVector3D& v, bool normalized)
 {
-    unsigned char x = v.x() * 255.0;
-    unsigned char y = v.y() * 255.0;
-    unsigned char z = v.z() * 255.0;
+    unsigned char x = v.x() * (normalized ? 255.0 : 1.0);
+    unsigned char y = v.y() * (normalized ? 255.0 : 1.0);
+    unsigned char z = v.z() * (normalized ? 255.0 : 1.0);
 
     unsigned int i = (unsigned int)z << 16 | (unsigned int)y << 8 | (unsigned int)x;
 
@@ -46,11 +46,22 @@ void Mesh::chew(ChewType chewType)
 {
     swallowedData.clear();
     faceidMap.clear();
+    color.clear();
 
     chewTypeUsed = chewType;
 
     if (chewType.points)
     {
+        if (faces.empty())
+        {
+            for (int points_i=0; points_i<points.size(); points_i++)
+            {
+                QVector3D& point = points[points_i];
+                swallowedData.append(point.x());
+                swallowedData.append(point.y());
+                swallowedData.append(point.z());
+            }
+        } else
         for (int face_i=0; face_i < faces.size(); face_i++ )
         {
             Triangle& triangle = faces[face_i];

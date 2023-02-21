@@ -35,6 +35,7 @@ class Mesh
     /// data ready to be put into a vertex buffer
     QVector<float> swallowedData;
     QVector<float> faceidMap; // face ids projected to window area
+    QVector<float> color;
 
 public:
     typedef Triangle FaceType;
@@ -57,6 +58,7 @@ public:
     };
 
     Mesh();
+    QVector<QVector3D>& getPoints(); // use for pushing points onto 'points' vector
 
     void chew(ChewType chewType={true, false, false}); // process 'high-level' vertex data to produce raw values for vertex buffers
     ChewType chewType(); // returns the chew type used for processing vertex info
@@ -73,7 +75,7 @@ private:
 };
 
 QVector3D hideIntInVector3D(unsigned int i);
-unsigned int unhideIntFromVector3D(QVector3D& v);
+unsigned int unhideIntFromVector3D(QVector3D& v, bool normalized=false);
 
 
 } // namespace Core
