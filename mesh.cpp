@@ -42,10 +42,15 @@ Mesh::Mesh()
 
 }
 
+QVector<QVector3D> &Mesh::getPoints()
+{
+    return points;
+}
+
 void Mesh::chew(ChewType chewType)
 {
     swallowedData.clear();
-    faceidMap.clear();
+    projectedFaceids.clear();
     color.clear();
 
     chewTypeUsed = chewType;
@@ -65,7 +70,6 @@ void Mesh::chew(ChewType chewType)
         for (int face_i=0; face_i < faces.size(); face_i++ )
         {
             Triangle& triangle = faces[face_i];
-            QVector3D faceidAsVector = hideIntInVector3D(face_i);
             for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
             {
                 PointIndex vertex_i = triangle.points[corner_i];
@@ -87,9 +91,9 @@ void Mesh::chew(ChewType chewType)
             for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
             {
                 // same faceid for all three corners of the face
-                faceidMap.append(faceidAsVector.x());
-                faceidMap.append(faceidAsVector.y());
-                faceidMap.append(faceidAsVector.z());
+                projectedFaceids.append(faceidAsVector.x());
+                projectedFaceids.append(faceidAsVector.y());
+                projectedFaceids.append(faceidAsVector.z());
             }
         }
     }
@@ -112,9 +116,9 @@ const QVector<float> &Mesh::getSwallowedData()
     return swallowedData;
 }
 
-const QVector<float> &Mesh::getFaceidMap()
+const QVector<float> &Mesh::getProjectedFaceids()
 {
-    return faceidMap;
+    return projectedFaceids;
 }
 
 // number of vertices

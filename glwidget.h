@@ -103,10 +103,11 @@ signals:
 protected:
     void initializeGL() override;
     void paintGL() override;
-    void paintUIOverlay();
     void resizeGL(int width, int height) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+
+    void updateUiOverlayMesh();
 
 
 private:
@@ -119,13 +120,15 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     QPoint m_lastPos;
-    Core::Mesh mesh_cube;
+    Core::Mesh meshModel;
+    Core::Mesh meshUiOverlay;
 
     RenderState renderState_model;
     RenderState renderState_idProjection;
+    RenderState renderState_uiOverlay;
 
-    QOpenGLBuffer pointsVbo;
-    QOpenGLBuffer faceidVbo;
+    QOpenGLBuffer vboPoints;
+    QOpenGLBuffer vboFaceid;
 
     // visible rendering program
     QOpenGLFramebufferObject* fbo = 0;
@@ -140,10 +143,10 @@ private:
     QOpenGLBuffer uiOverlayVbo;
 
     // transformations
-    QMatrix4x4 m_proj;
-    QMatrix4x4 m_camera;
-    QMatrix4x4 m_world;
-    QMatrix4x4 mvpTransformation;
+    QMatrix4x4 matProj;
+    QMatrix4x4 matCamera;
+    QMatrix4x4 matWorld;
+    QMatrix4x4 matMvpTransformation;
     static bool m_transparent;
 };
 

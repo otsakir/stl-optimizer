@@ -29,15 +29,15 @@ typedef Face<3> Triangle;
 
 class Mesh
 {
-    QVector<QVector3D> points;
-    QVector<Triangle> faces;
-
     /// data ready to be put into a vertex buffer
     QVector<float> swallowedData;
-    QVector<float> faceidMap; // face ids projected to window area
+    QVector<float> projectedFaceids; // face ids projected to window area
     QVector<float> color;
 
 public:
+    QVector<QVector3D> points;
+    QVector<Triangle> faces;
+
     typedef Triangle FaceType;
 
     /*
@@ -64,7 +64,7 @@ public:
     ChewType chewType(); // returns the chew type used for processing vertex info
     void clear(); // clear source arrays of vertices i.e. points, faces etc. TODO - shall we also clear swallowedData ?
     const QVector<float>& getSwallowedData();
-    const QVector<float>& getFaceidMap();
+    const QVector<float>& getProjectedFaceids();
     int chewedCount();
 
     friend class Utils::Loader;

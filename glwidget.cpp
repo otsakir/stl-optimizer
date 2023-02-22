@@ -157,8 +157,8 @@ void GLWidget::cleanup()
         cleanedUp = true;
         makeCurrent();
 
-        pointsVbo.destroy();
-        faceidVbo.destroy();
+        vboPoints.destroy();
+        vboFaceid.destroy();
         renderState_idProjection.cleanup();
         renderState_model.cleanup();
 
@@ -166,29 +166,72 @@ void GLWidget::cleanup()
     }
 }
 
+void GLWidget::updateUiOverlayMesh()
+{
+    if (selectedFace != -1)
+    {
+        Core::Triangle triangle = meshModel.faces[selectedFace];
+        QVector3D& point1 = meshModel.points[triangle.points[0]];
+        QVector3D& point2 = meshModel.points[triangle.points[1]];
+        QVector3D& point3 = meshModel.points[triangle.points[2]];
+
+        QVector<QVector3D>& points = meshUiOverlay.getPoints();
+        points.clear();
+        points.append(point1);
+        points.append(point2);
+        points.append(point3);
+        meshUiOverlay.chew();
+
+        makeCurrent();
+        uiOverlayVbo.bind();
+        uiOverlayVbo.allocate(meshUiOverlay.getSwallowedData().constData(), meshUiOverlay.getSwallowedData().size()* sizeof(GLfloat));
+        uiOverlayVbo.release();
+
+    }
+    //QVector<QVector3D>& points = meshUiOverlay.getPoints();
+    //points[0].setX(points[0].x() + 0.1);
+    //meshUiOverlay.chew();
+
+
+
+}
 
 void GLWidget::initializeGL()
 {
-    Utils::Loader loader;
-
-    loader.loadStl("box.stl", mesh_cube);
-    mesh_cube.chew({true, false, true});
-
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
+
+    // set up meshes
+    Utils::Loader loader;
+    loader.loadStl("box.stl", meshModel);
+    meshModel.chew({true, false, true});
+
+    QVector<QVector3D>& uiPoints = meshUiOverlay.getPoints();
+    uiPoints.append(QVector3D(0,0,1));
+    uiPoints.append(QVector3D(5,0,1));
+    uiPoints.append(QVector3D(5,5,1));
+    meshUiOverlay.chew();
+
+
 
     initializeOpenGLFunctions();
     glClearColor(0, 0, 0, m_transparent ? 0 : 1);
 
     // buffer with model vertices
-    pointsVbo.create();
-    pointsVbo.bind();
-    pointsVbo.allocate(mesh_cube.getSwallowedData().constData(), mesh_cube.getSwallowedData().size() * sizeof(GLfloat));
-    pointsVbo.release();
+    vboPoints.create();
+    vboPoints.bind();
+    vboPoints.allocate(meshModel.getSwallowedData().constData(), meshModel.getSwallowedData().size() * sizeof(GLfloat));
+    vboPoints.release();
     // buffer with face ids
-    faceidVbo.create();
-    faceidVbo.bind();
-    faceidVbo.allocate(mesh_cube.getFaceidMap().constData(), mesh_cube.getFaceidMap().size() * sizeof(GLfloat));
-    faceidVbo.release();
+    vboFaceid.create();
+    vboFaceid.bind();
+    vboFaceid.allocate(meshModel.getProjectedFaceids().constData(), meshModel.getProjectedFaceids().size() * sizeof(GLfloat));
+    vboFaceid.release();
+    //
+    uiOverlayVbo.create();
+    uiOverlayVbo.bind();
+    uiOverlayVbo.allocate(meshUiOverlay.getSwallowedData().constData(), meshUiOverlay.getSwallowedData().size()* sizeof(GLfloat));
+    uiOverlayVbo.release();
+
 
     // main scene model
     renderState_model.setVShader(
@@ -204,7 +247,7 @@ void GLWidget::initializeGL()
         "void main() {\n"
         "   gl_FragColor = vec4(1.0, 0, 0, 1);\n"
         "}\n");
-    renderState_model.addAttribute("vertex",pointsVbo);
+    renderState_model.addAttribute("vertex",vboPoints);
     renderState_model.setupProgram();
     renderState_model.setupVao();
 
@@ -227,10 +270,28 @@ void GLWidget::initializeGL()
         //"gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
         "}\n"
     );
-    renderState_idProjection.addAttribute("vertex", pointsVbo);
-    renderState_idProjection.addAttribute("faceid", faceidVbo);
+    renderState_idProjection.addAttribute("vertex", vboPoints);
+    renderState_idProjection.addAttribute("faceid", vboFaceid);
     renderState_idProjection.setupProgram();
     renderState_idProjection.setupVao();
+
+    // ui overlay
+    renderState_uiOverlay.setVShader(
+        "attribute vec4 vertex;\n"
+        "uniform mat4 mvpMatrix;\n"
+        "void main() {\n"
+        "  gl_Position = mvpMatrix * vertex;\n"
+        "}\n"
+    );
+    renderState_uiOverlay.setFShader(
+        "void main(){\n"
+        "   gl_FragColor = vec4(0, 1.0, 0, 1.0);\n"
+        "}\n"
+    );
+    renderState_uiOverlay.addAttribute("vertex",uiOverlayVbo);
+    renderState_uiOverlay.setupProgram();
+    renderState_uiOverlay.setupVao();
+
 
 }
 
@@ -242,25 +303,25 @@ void GLWidget::paintGL()
     glEnable(GL_CULL_FACE);
 
     // camera
-    m_camera.setToIdentity();
+    matCamera.setToIdentity();
     // world
-    m_world.setToIdentity();
-    m_world.translate(0,0,-5.0);
-    m_world.rotate(m_xRot / 16.0f, 1, 0, 0);
-    m_world.rotate(m_yRot / 16.0f, 0, 1, 0);
-    m_world.rotate(m_zRot / 16.0f, 0, 0, 1);
+    matWorld.setToIdentity();
+    matWorld.translate(0,0,-5.0);
+    matWorld.rotate(m_xRot / 16.0f, 1, 0, 0);
+    matWorld.rotate(m_yRot / 16.0f, 0, 1, 0);
+    matWorld.rotate(m_zRot / 16.0f, 0, 0, 1);
     // camera & world
-    QMatrix4x4 mview = m_camera * m_world;
+    QMatrix4x4 mview = matCamera * matWorld;
 
-    mvpTransformation = m_proj * mview; // used all over the place
+    matMvpTransformation = matProj * mview; // used all over the place
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, mvpTransformation);
+    renderState_idProjection.program->setUniformValue(0, matMvpTransformation);
     fbo->bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
+    glDrawArrays(GL_TRIANGLES, 0, meshModel.chewedCount());
     snapshotImage = fbo->toImage();
     fbo->release();
     renderState_idProjection.vao.release();
@@ -268,33 +329,29 @@ void GLWidget::paintGL()
     // Render model
     renderState_model.vao.bind();
     renderState_model.program->bind();
-    renderState_model.program->setUniformValue(0, mvpTransformation);
-    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
+    renderState_model.program->setUniformValue(0, matMvpTransformation);
+    glDrawArrays(GL_TRIANGLES, 0, meshModel.chewedCount());
     renderState_model.program->release();
     renderState_model.vao.release();
-}
 
-void GLWidget::paintUIOverlay()
-{
-    /*
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
+    // render ui overlay
+    //updateUiOverlayMesh();
 
-    // Render model
-    m_vao.bind();
-    m_program->bind();
-    m_program->setUniformValue(0, mvpTransformation); // by conventions all programs use location 0 for mvpMatrix
-//    glDrawArrays(GL_TRIANGLES, 0, mesh_cube.chewedCount());
-    m_program->release();
-    m_vao.release();
-    */
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderState_uiOverlay.vao.bind();
+    renderState_uiOverlay.program->bind();
+    int loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
+    renderState_uiOverlay.program->setUniformValue(loc, matMvpTransformation);
+    glDrawArrays(GL_TRIANGLES, 0, meshUiOverlay.chewedCount());
+    renderState_uiOverlay.program->release();
+    renderState_uiOverlay.vao.release();
+
 }
 
 void GLWidget::resizeGL(int w, int h)
 {
-    m_proj.setToIdentity();
-    m_proj.perspective(45.0f, GLfloat(w) / h, 0.01f, 100.0f); // near/far only care about clipping
+    matProj.setToIdentity();
+    matProj.perspective(45.0f, GLfloat(w) / h, 0.01f, 100.0f); // near/far only care about clipping
 
     if (fbo)
     {
@@ -325,6 +382,8 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
     } else
     {
         this->selectedFace = faceid;
+        updateUiOverlayMesh();
+        update();
     }
 
     qDebug() << "face at clicked position: " << red << green << blue << ". Faceid: " << faceid;
