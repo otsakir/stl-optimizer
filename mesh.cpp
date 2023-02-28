@@ -1,5 +1,9 @@
 #include "mesh.h"
+#include <limits.h>
+#include <algorithm>  // std::fill()
 #include <QDebug>
+
+
 
 namespace Core {
 
@@ -55,7 +59,7 @@ void Mesh::chew(ChewType chewType)
 
     chewTypeUsed = chewType;
 
-    if (chewType.points)
+    if (chewType.bits.points)
     {
         if (faces.empty())
         {
@@ -80,10 +84,9 @@ void Mesh::chew(ChewType chewType)
                 swallowedData.append(point.z());
             }
         }
-        //chewTypeUsed = POINTS_ONLY;
     }
 
-    if (chewType.faceIds)
+    if (chewType.bits.faceIds)
     {
         for (int face_i=0; face_i < faces.size(); face_i++ )
         {
@@ -97,6 +100,22 @@ void Mesh::chew(ChewType chewType)
             }
         }
     }
+
+    if (chewType.bits.graph)
+    {
+        graph.resize(points.size());
+        if (!faces.empty())
+        {
+            for (int face_i=0; face_i < faces.size(); face_i++ )
+            {
+                Triangle& triangle = faces[face_i];
+                graph.putPair(triangle.points[0], triangle.points[1]);
+                graph.putPair(triangle.points[1], triangle.points[2]);
+                graph.putPair(triangle.points[2], triangle.points[0]);
+            }
+        }
+    }
+
 
 }
 
@@ -125,6 +144,87 @@ const QVector<float> &Mesh::getProjectedFaceids()
 int Mesh::chewedCount()
 {
     return swallowedData.size() / Mesh::FaceType::PointCount;
+}
+
+//#define EMPTY_VALUE UINT_MAX
+
+// resize and clear
+void PointGraph::resize(size_t pointCount/*, size_t relatedCount*/)
+{
+/*
+    size_t area = pointCount * relatedCount;
+
+    if (pointCount == 0 || relatedCount == 0)
+    {
+        qDebug() << "invalid dimmensions for PointGraph";
+        return STATUS_ERROR;
+    }
+
+    // if "area" of new connections array is different we need to re-allocate
+    if (area != this->pointCount * this->maxRelatedCount)
+    {
+        delete [] connections;
+        pointCount = this->pointCount;
+        relatedCount = this->maxRelatedCount;
+        connections = new PointIndex[area];
+    }
+
+    // reset content
+    std::fill(connections, connections+area, EMPTY_VALUE);
+    */
+
+    connections.resize(pointCount);
+    //connections.squeeze(); // TODO - release memory for point entries that are now not used
+    for (int point_i = 0; point_i < connections.size(); point_i++)
+    {
+        connections[point_i].clear();
+
+    }
+}
+
+void PointGraph::putPair(PointIndex m, PointIndex n)
+{
+    //assert((int)m < pointCount);
+    //assert((int)n < pointCount);
+
+    if (connections[m].indexOf(n) == -1)
+    {
+        connections[m].append(n);
+    }
+
+    if (connections[n].indexOf(m) == -1)
+    {
+        connections[n].append(m);
+    }
+
+}
+
+/*
+void PointGraph::putPoint(PointIndex basePoint, PointIndex relative)
+{
+    PointIndex* baseColumn = connections + basePoint*this->maxRelatedCount;
+    PointIndex relative_i = 0;
+    while (relative_i < this->maxRelatedCount)
+    {
+        if (baseColumn[relative_i] == EMPTY_VALUE)
+        {
+            baseColumn[relative_i] = relative;
+            break;
+        } else
+        {
+
+        }
+    }
+}
+*/
+
+PointGraph::~PointGraph()
+{
+    /*if ( ! connections )
+        return;
+
+    delete [] connections;
+    connections =  nullptr;*/
 }
 
 } // namespace Core

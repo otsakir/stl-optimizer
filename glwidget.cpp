@@ -58,6 +58,7 @@
 
 #include "loader.h"
 
+using Core::Mesh;
 
 
 bool GLWidget::m_transparent = false;
@@ -203,13 +204,13 @@ void GLWidget::initializeGL()
     // set up meshes
     Utils::Loader loader;
     loader.loadStl("box.stl", meshModel);
-    meshModel.chew({true, false, true});
+    meshModel.chew(Core::Mesh::CHEW_POINTS | Core::Mesh::CHEW_FACEIDS);
 
     QVector<QVector3D>& uiPoints = meshUiOverlay.getPoints();
     uiPoints.append(QVector3D(0,0,1));
     uiPoints.append(QVector3D(5,0,1));
     uiPoints.append(QVector3D(5,5,1));
-    meshUiOverlay.chew();
+    meshUiOverlay.chew(Mesh::CHEW_GRAPH);
 
 
 
