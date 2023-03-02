@@ -78,9 +78,6 @@ GLWidget::GLWidget(QWidget *parent)
 
 GLWidget::~GLWidget()
 {
-    //Utils::Loader loader;
-    //loader.loadStl()
-    //mesh:
     cleanup();
 }
 
@@ -196,45 +193,6 @@ void GLWidget::updateUiOverlayMesh()
         uiOverlayVbo.release();
 
     }
-        //QVector<Core::FaceIndex> inner_faces;
-        //QVector<Core::FaceIndex> out_faces;
-
-        //inner_faces.append(selectedFace);
-        //adjacentFaces(meshModel, inner_faces, out_faces);
-        //inner_faces.append(out_faces);
-        //adjacentFaces(meshModel, inner_faces, out_faces);
-
-/*
-        QVector<QVector3D>& points = meshUiOverlay.getPoints();
-        points.clear();
-        for (int i=0; i < out_faces.size(); i++)
-        {
-            Core::Triangle triangle = meshModel.faces[out_faces[i]];
-            QVector3D& point1 = meshModel.points[triangle.points[0]];
-            QVector3D& point2 = meshModel.points[triangle.points[1]];
-            QVector3D& point3 = meshModel.points[triangle.points[2]];
-
-            points.append(point1);
-            points.append(point2);
-            points.append(point3);
-
-        }
-
-        //meshUiOverlay.chew();
-
-        makeCurrent();
-        uiOverlayVbo.bind();
-        uiOverlayVbo.allocate(meshUiOverlay.getSwallowedData().constData(), meshUiOverlay.getSwallowedData().size()* sizeof(GLfloat));
-        uiOverlayVbo.release();
-
-    }
-    //QVector<QVector3D>& points = meshUiOverlay.getPoints();
-    //points[0].setX(points[0].x() + 0.1);
-    //meshUiOverlay.chew();
-
-    */
-
-
 
 }
 
@@ -248,15 +206,6 @@ void GLWidget::initializeGL()
     // generate secondary source data
     meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
     meshModel.swallow();
-
-    /*
-    QVector<QVector3D>& uiPoints = meshUiOverlay.getPoints();
-    uiPoints.append(QVector3D(0,0,1));
-    uiPoints.append(QVector3D(5,0,1));
-    uiPoints.append(QVector3D(5,5,1));
-    meshUiOverlay.chew(Mesh::CHEW_GRAPH);
-*/
-
 
     initializeOpenGLFunctions();
     glClearColor(0, 0, 0, m_transparent ? 0 : 1);

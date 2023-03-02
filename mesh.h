@@ -161,7 +161,6 @@ public:
 };
 
 
-
 class VertexIterator
 {
 private:
@@ -324,7 +323,6 @@ class Mesh : public SourceArrays
 {
 protected:
     /// data ready to be put into a vertex buffer
-    //QVector<float> swallowedData;
     QVector<float> projectedFaceids; // face ids projected to window area
     QVector<float> color;
 
@@ -368,10 +366,6 @@ public:
 
     void chew(ChewType chewType); // process 'high-level' vertex data to produce raw values for vertex buffers
     ChewType chewType(); // returns the chew type used for processing vertex info
-    //void clear(); // clear source arrays of vertices i.e. points, faces etc. TODO - shall we also clear swallowedData ?
-    //const QVector<float>& getSwallowedData();
-    const QVector<float>& getProjectedFaceids();
-    //int chewedCount();
 
     friend class Utils::Loader;
 
