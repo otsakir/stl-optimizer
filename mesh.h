@@ -105,7 +105,8 @@ private:
     T index;
 
 public:
-    IndexerVector(QVector<T>& vec) : vector(vec)  {};
+    IndexerVector(QVector<T>& vec) : vector(vec), index(0)
+    {};
 
     bool available() override
     {

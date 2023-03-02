@@ -74,21 +74,31 @@ class ModelMesh : public Core::Mesh
 public:
     QVector<float> data; // point date for vertex buffers
 
-    QVector<QVector3D> uioverlayPoints; // a wireframe overlay. It's a set indices to main 'points' rendered as GL_LINES
+    QVector<float> idprojectionData; // face ids to project
+
+    QVector<float> uioverlayData;
+    QVector<Core::FaceIndex> uioverlayFaces;
+
+    //QVector<QVector3D> uioverlayPoints; // a wireframe overlay. It's a set indices to main 'points' rendered as GL_LINES
 
     void swallow()
     {
         data.clear();
         VertexIterator vi(*this, data, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
         while (vi.pump()) {}; // process all
+
+        idprojectionData.clear();
+        VertexIterator vi2(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
+        while (vi2.pump()) {};
     }
 
-    /*
-    void swallowUioverlay(QVector<Core::FaceIndex> fcs)
+
+    void swallowUioverlay()
     {
-        uioverlayPoints.clear();
-        VertexIterator vi(*this, )
-    }*/
+        uioverlayData.clear();
+        VertexIterator vi(*this, &uioverlayFaces, uioverlayData, Core::VertexIterator::ITERATE_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
+        while (vi.pump()) {};
+    }
 };
 
 /*
