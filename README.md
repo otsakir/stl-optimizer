@@ -29,6 +29,13 @@ face.a, face.b, face.c
 
 ### Applications
 
+* Detect hanging parts and add support stemming from the body of the model.
+* Strengthening. Create holes to add screws.
+* Detect sharp angles and add fillets.
+
+### Roadmap
+
+* 
 
 
 ### Implementation

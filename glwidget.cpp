@@ -167,21 +167,51 @@ void GLWidget::cleanup()
     }
 }
 
+void adjacentFaces(Core::Mesh& mesh, QVector<Core::FaceIndex>& inner_faces, QVector<Core::FaceIndex>& out_faces )
+{
+    for (int inner_i = 0; inner_i < inner_faces.size(); inner_i++)
+    {
+        QVector<Core::FaceIndex>& adjacent_faces = mesh.faceFaces[inner_faces[inner_i]];
+        for (int adj_i=0; adj_i<adjacent_faces.size(); adj_i++)
+        {
+            if (!out_faces.contains(adjacent_faces[adj_i]))
+            {
+                out_faces.append(adjacent_faces[adj_i]);
+            }
+        }
+    }
+}
+
 void GLWidget::updateUiOverlayMesh()
 {
+    /*
     if (selectedFace != -1)
     {
-        Core::Triangle triangle = meshModel.faces[selectedFace];
-        QVector3D& point1 = meshModel.points[triangle.points[0]];
-        QVector3D& point2 = meshModel.points[triangle.points[1]];
-        QVector3D& point3 = meshModel.points[triangle.points[2]];
+        QVector<Core::FaceIndex> inner_faces;
+        QVector<Core::FaceIndex> out_faces;
+
+        inner_faces.append(selectedFace);
+        adjacentFaces(meshModel, inner_faces, out_faces);
+        //inner_faces.append(out_faces);
+        //adjacentFaces(meshModel, inner_faces, out_faces);
+
 
         QVector<QVector3D>& points = meshUiOverlay.getPoints();
         points.clear();
-        points.append(point1);
-        points.append(point2);
-        points.append(point3);
-        meshUiOverlay.chew();
+        for (int i=0; i < out_faces.size(); i++)
+        {
+            Core::Triangle triangle = meshModel.faces[out_faces[i]];
+            QVector3D& point1 = meshModel.points[triangle.points[0]];
+            QVector3D& point2 = meshModel.points[triangle.points[1]];
+            QVector3D& point3 = meshModel.points[triangle.points[2]];
+
+            points.append(point1);
+            points.append(point2);
+            points.append(point3);
+
+        }
+
+        //meshUiOverlay.chew();
 
         makeCurrent();
         uiOverlayVbo.bind();
@@ -193,6 +223,8 @@ void GLWidget::updateUiOverlayMesh()
     //points[0].setX(points[0].x() + 0.1);
     //meshUiOverlay.chew();
 
+    */
+
 
 
 }
@@ -201,17 +233,20 @@ void GLWidget::initializeGL()
 {
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
 
-    // set up meshes
+    // load primary source data
     Utils::Loader loader;
     loader.loadStl("box.stl", meshModel);
-    meshModel.chew(Core::Mesh::CHEW_POINTS | Core::Mesh::CHEW_FACEIDS);
+    // generate secondary source data
+    meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
+    meshModel.swallow();
 
+    /*
     QVector<QVector3D>& uiPoints = meshUiOverlay.getPoints();
     uiPoints.append(QVector3D(0,0,1));
     uiPoints.append(QVector3D(5,0,1));
     uiPoints.append(QVector3D(5,5,1));
     meshUiOverlay.chew(Mesh::CHEW_GRAPH);
-
+*/
 
 
     initializeOpenGLFunctions();
@@ -220,8 +255,10 @@ void GLWidget::initializeGL()
     // buffer with model vertices
     vboPoints.create();
     vboPoints.bind();
-    vboPoints.allocate(meshModel.getSwallowedData().constData(), meshModel.getSwallowedData().size() * sizeof(GLfloat));
+    vboPoints.allocate(meshModel.data.constData(), meshModel.data.size() * sizeof(GLfloat));
     vboPoints.release();
+
+/*
     // buffer with face ids
     vboFaceid.create();
     vboFaceid.bind();
@@ -232,7 +269,7 @@ void GLWidget::initializeGL()
     uiOverlayVbo.bind();
     uiOverlayVbo.allocate(meshUiOverlay.getSwallowedData().constData(), meshUiOverlay.getSwallowedData().size()* sizeof(GLfloat));
     uiOverlayVbo.release();
-
+*/
 
     // main scene model
     renderState_model.setVShader(
@@ -252,7 +289,7 @@ void GLWidget::initializeGL()
     renderState_model.setupProgram();
     renderState_model.setupVao();
 
-
+/*
     // id projection
     renderState_idProjection.setVShader(
         "attribute vec4 vertex;\n"
@@ -292,7 +329,7 @@ void GLWidget::initializeGL()
     renderState_uiOverlay.addAttribute("vertex",uiOverlayVbo);
     renderState_uiOverlay.setupProgram();
     renderState_uiOverlay.setupVao();
-
+*/
 
 }
 
@@ -316,6 +353,7 @@ void GLWidget::paintGL()
 
     matMvpTransformation = matProj * mview; // used all over the place
 
+    /*
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
@@ -326,18 +364,20 @@ void GLWidget::paintGL()
     snapshotImage = fbo->toImage();
     fbo->release();
     renderState_idProjection.vao.release();
+*/
 
     // Render model
     renderState_model.vao.bind();
     renderState_model.program->bind();
     renderState_model.program->setUniformValue(0, matMvpTransformation);
-    glDrawArrays(GL_TRIANGLES, 0, meshModel.chewedCount());
+    glDrawArrays(GL_TRIANGLES, 0, meshModel.data.size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
 
     // render ui overlay
     //updateUiOverlayMesh();
 
+    /*
     glClear(GL_DEPTH_BUFFER_BIT);
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
@@ -346,7 +386,7 @@ void GLWidget::paintGL()
     glDrawArrays(GL_TRIANGLES, 0, meshUiOverlay.chewedCount());
     renderState_uiOverlay.program->release();
     renderState_uiOverlay.vao.release();
-
+*/
 }
 
 void GLWidget::resizeGL(int w, int h)

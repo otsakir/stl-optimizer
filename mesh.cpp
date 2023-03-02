@@ -51,55 +51,86 @@ QVector<QVector3D> &Mesh::getPoints()
     return points;
 }
 
+
+
+// generate data for vertex buffers
+/**
+ * @brief Mesh::swallow
+ *
+ * Assumes `points` is full and faces may have triangle information or not. If 'faces' is full
+ * each entry will have indices of three points, the corners of a triangle.
+ *
+ *
+ * @param primitiveType    how should the target vertex data be organized. GL_TRIANGLES will produce
+ * three vertices for each face. GL_LINES will produce six vertices for each face.
+ * @param target    place to store the produces vertices
+ */
+//void Mesh::swallow(PrimitiveType primitiveType, QVector<float>& target)
+//{
+//    swallowedData.clear();
+
+//    swallowedData.clear();
+//    VertexIterator vi(*this, swallowedData, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
+
+//    while (vi.pump()) {}; // process all
+
+//    /*if (chewType.bits.points)
+//    {
+//        if (faces.empty())
+//        {
+//            for (int points_i=0; points_i<points.size(); points_i++)
+//            {
+//                QVector3D& point = points[points_i];
+//                swallowedData.append(point.x());
+//                swallowedData.append(point.y());
+//                swallowedData.append(point.z());
+//            }
+//        } else
+//        for (int face_i=0; face_i < faces.size(); face_i++ )
+//        {
+//            Triangle& triangle = faces[face_i];
+//            for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
+//            {
+//                PointIndex vertex_i = triangle.points[corner_i];
+//                QVector3D& point = points[vertex_i];
+
+//                swallowedData.append(point.x());
+//                swallowedData.append(point.y());
+//                swallowedData.append(point.z());
+//            }
+//        }
+//    }*/
+
+//    projectedFaceids.clear();
+//    VertexIterator vi2(*this, projectedFaceids, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_FACEID );
+//    while (vi2.pump()) {};
+
+///*
+//    if (chewType.bits.faceIds)
+//    {
+//        for (int face_i=0; face_i < faces.size(); face_i++ )
+//        {
+//            QVector3D faceidAsVector = hideIntInVector3D(face_i);
+//            for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
+//            {
+//                // same faceid for all three corners of the face
+//                projectedFaceids.append(faceidAsVector.x());
+//                projectedFaceids.append(faceidAsVector.y());
+//                projectedFaceids.append(faceidAsVector.z());
+//            }
+//        }
+//    }
+//    */
+//}
+
+
+
+
 void Mesh::chew(ChewType chewType)
 {
-    swallowedData.clear();
-    projectedFaceids.clear();
     color.clear();
 
     chewTypeUsed = chewType;
-
-    if (chewType.bits.points)
-    {
-        if (faces.empty())
-        {
-            for (int points_i=0; points_i<points.size(); points_i++)
-            {
-                QVector3D& point = points[points_i];
-                swallowedData.append(point.x());
-                swallowedData.append(point.y());
-                swallowedData.append(point.z());
-            }
-        } else
-        for (int face_i=0; face_i < faces.size(); face_i++ )
-        {
-            Triangle& triangle = faces[face_i];
-            for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
-            {
-                PointIndex vertex_i = triangle.points[corner_i];
-                QVector3D& point = points[vertex_i];
-
-                swallowedData.append(point.x());
-                swallowedData.append(point.y());
-                swallowedData.append(point.z());
-            }
-        }
-    }
-
-    if (chewType.bits.faceIds)
-    {
-        for (int face_i=0; face_i < faces.size(); face_i++ )
-        {
-            QVector3D faceidAsVector = hideIntInVector3D(face_i);
-            for (int corner_i=0; corner_i < Triangle::PointCount; corner_i++)
-            {
-                // same faceid for all three corners of the face
-                projectedFaceids.append(faceidAsVector.x());
-                projectedFaceids.append(faceidAsVector.y());
-                projectedFaceids.append(faceidAsVector.z());
-            }
-        }
-    }
 
     if (chewType.bits.graph)
     {
@@ -116,6 +147,51 @@ void Mesh::chew(ChewType chewType)
         }
     }
 
+    // populate pointFaces array. Be able to tell which faces are adjacent to any point.
+    if (!faces.empty())
+    {
+        // clear pointFaces. Initially, each point should have 0 adjacent faces
+        pointFaces.resize(points.size());
+        for (int point_i=0; point_i<pointFaces.size(); point_i++)
+        {
+            pointFaces[point_i].clear();
+        }
+
+        for (int face_i=0; face_i < faces.size(); face_i++ )
+        {
+            Triangle& triangle = faces[face_i];
+            for (PointIndex point_i=0; point_i < Triangle::PointCount; point_i++)
+            {
+                QVector<FaceIndex>& faces_for_point = pointFaces[triangle.points[point_i]];
+                if (! faces_for_point.contains(face_i))
+                {
+                    faces_for_point.append(face_i);
+                }
+            }
+        }
+
+        faceFaces.resize(faces.size());
+        for (int face_i=0; face_i < faces.size(); face_i++ )
+        {
+            faceFaces[face_i].clear();
+
+            Triangle& triangle = faces[face_i];
+            for (PointIndex point_i=0; point_i < Triangle::PointCount; point_i++)
+            {
+                // get all adjacent faces for this point of the triangle
+                QVector<FaceIndex>& faces_for_point = pointFaces[triangle.points[point_i]];
+                for (int pointfaces_i=0; pointfaces_i < faces_for_point.size(); pointfaces_i++)
+                {
+                    // push adjacent faces of the triangle's point to the faceFaces array, if not already there
+                    if ( ! faceFaces[face_i].contains(faces_for_point[pointfaces_i]) )
+                    {
+                        faceFaces[face_i].append(faces_for_point[pointfaces_i]);
+                    }
+                }
+            }
+        }
+    }
+
 
 }
 
@@ -124,16 +200,6 @@ Mesh::ChewType Mesh::chewType()
     return chewTypeUsed;
 }
 
-void Mesh::clear()
-{
-    points.clear();
-    faces.clear();
-}
-
-const QVector<float> &Mesh::getSwallowedData()
-{
-    return swallowedData;
-}
 
 const QVector<float> &Mesh::getProjectedFaceids()
 {
@@ -141,10 +207,12 @@ const QVector<float> &Mesh::getProjectedFaceids()
 }
 
 // number of vertices
+/*
 int Mesh::chewedCount()
 {
     return swallowedData.size() / Mesh::FaceType::PointCount;
 }
+*/
 
 //#define EMPTY_VALUE UINT_MAX
 
@@ -197,6 +265,12 @@ void PointGraph::putPair(PointIndex m, PointIndex n)
         connections[n].append(m);
     }
 
+}
+
+void PointGraph::clear()
+{
+    connections.clear();
+    pointCount = 0;
 }
 
 /*

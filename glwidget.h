@@ -67,6 +67,47 @@ QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
 
 #include <qopengl.h>
 
+using Core::VertexIterator;
+
+class ModelMesh : public Core::Mesh
+{
+public:
+    QVector<float> data; // point date for vertex buffers
+
+    QVector<QVector3D> uioverlayPoints; // a wireframe overlay. It's a set indices to main 'points' rendered as GL_LINES
+
+    void swallow()
+    {
+        data.clear();
+        VertexIterator vi(*this, data, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
+        while (vi.pump()) {}; // process all
+    }
+
+    /*
+    void swallowUioverlay(QVector<Core::FaceIndex> fcs)
+    {
+        uioverlayPoints.clear();
+        VertexIterator vi(*this, )
+    }*/
+};
+
+/*
+class UiOverlayMesh : public Core::Mesh
+{
+public:
+    void swallowPoints()
+    {
+        projectedFaceids.clear();
+        VertexIterator vi(*this, projectedFaceids, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_FACEID );
+        while (vi.pump()) {};
+    }
+
+    void swallowFaceIds
+};
+*/
+
+
+
 
 
 
@@ -120,8 +161,8 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     QPoint m_lastPos;
-    Core::Mesh meshModel;
-    Core::Mesh meshUiOverlay;
+    ModelMesh meshModel;
+    //Core::Mesh meshUiOverlay;
 
     RenderState renderState_model;
     RenderState renderState_idProjection;
@@ -151,6 +192,7 @@ private:
 };
 
 // contains ui elements to be drawn over the model
+/*
 class UIMeshOverlay
 {
     Core::Mesh mesh;
@@ -167,5 +209,6 @@ public:
         mesh.chew();
     }
 };
+*/
 
 #endif
