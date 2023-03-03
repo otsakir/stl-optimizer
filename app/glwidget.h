@@ -121,6 +121,8 @@ private:
     int zTrans = 0;
     QPoint m_lastPos;
     ModelMesh meshModel;
+    BasegridMesh basegridMesh;
+
     //Core::Mesh meshUiOverlay;
 
     RenderState renderState_model;
@@ -141,6 +143,9 @@ private:
     QOpenGLShaderProgram* uiOverlayProgram = nullptr;
     QOpenGLVertexArrayObject uiOverlay_vao;
     QOpenGLBuffer uiOverlayVbo;
+
+    // basedgrid rendering
+
 
     // transformations
     QMatrix4x4 matProj;
