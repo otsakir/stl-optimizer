@@ -1,7 +1,8 @@
 HEADERS       = glwidget.h \
+                app.h \
                 loader.h \
                 mesh.h \
-                renderstate.h \
+                rendering.h \
                 stl_reader.h \
                 window.h \
                 mainwindow.h
@@ -9,7 +10,7 @@ SOURCES       = glwidget.cpp \
                 loader.cpp \
                 main.cpp \
                 mesh.cpp \
-                renderstate.cpp \
+                rendering.cpp \
                 window.cpp \
                 mainwindow.cpp
 

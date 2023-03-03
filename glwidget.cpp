@@ -185,6 +185,12 @@ void GLWidget::updateUiOverlayMesh()
     {
         meshModel.uioverlayFaces.clear();
         meshModel.uioverlayFaces.append(selectedFace);
+
+        QVector<Core::FaceIndex> out_faces;
+        adjacentFaces(meshModel, meshModel.uioverlayFaces, out_faces);
+        meshModel.uioverlayFaces.clear();
+        meshModel.uioverlayFaces.append(out_faces);
+
         meshModel.swallowUioverlay(); // populate meshModel.uioverlayData
 
         makeCurrent();

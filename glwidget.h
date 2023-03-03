@@ -59,43 +59,14 @@
 #include <QOpenGLTexture>
 #include <QMatrix4x4>
 
-#include "mesh.h"
-#include "renderstate.h"
+#include "rendering.h"
+#include "app.h"
 
 
 QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
 
 #include <qopengl.h>
 
-using Core::VertexIterator;
-
-class ModelMesh : public Core::Mesh
-{
-public:
-    QVector<float> data; // point date for vertex buffers
-    QVector<float> idprojectionData; // face ids to project
-    QVector<float> uioverlayData;
-    QVector<Core::FaceIndex> uioverlayFaces;
-
-    void swallow()
-    {
-        data.clear();
-        VertexIterator vi(*this, data, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pump()) {}; // process all
-
-        idprojectionData.clear();
-        VertexIterator vi2(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
-        while (vi2.pump()) {};
-    }
-
-
-    void swallowUioverlay()
-    {
-        uioverlayData.clear();
-        VertexIterator vi(*this, &uioverlayFaces, uioverlayData, Core::VertexIterator::ITERATE_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pump()) {};
-    }
-};
 
 
 

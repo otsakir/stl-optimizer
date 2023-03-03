@@ -1,5 +1,5 @@
-#ifndef RENDERSTATE_H
-#define RENDERSTATE_H
+#ifndef RENDERING_H
+#define RENDERING_H
 
 #include <QOpenGLBuffer>
 #include <QOpenGLVertexArrayObject>
@@ -36,4 +36,4 @@ public:
 
 };
 
-#endif // RENDERSTATE_H
+#endif // RENDERING_H

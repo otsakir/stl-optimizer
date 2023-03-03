@@ -95,6 +95,8 @@ public:
     virtual T& get() = 0;
     virtual bool next(int step) = 0;
 
+    virtual ~Indexer() {};
+
 };
 
 template <typename T>
@@ -167,12 +169,14 @@ private:
         const SourceArrays& sourceArrays;
         const QVector<FaceIndex>* faceIds = nullptr;
 
-        Indexer<FaceIndex>* faceIndexer;
+        Indexer<FaceIndex>* faceIndexer = nullptr;
+        Indexer<PointIndex>* pointIndexer = nullptr;
 public:
     enum Type
     {
         ITERATE_TRIANGLES,
-        ITERATE_LINES
+        ITERATE_TRIANGLES_TO_LINES,
+        ITERATE_POINTS
     };
 
     enum ActionType
@@ -189,7 +193,17 @@ public:
     {
         setType(type);
         setAction(actionType);
-        faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size());
+        switch (type)
+        {
+            case ITERATE_TRIANGLES:
+                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size());
+            break;
+            case ITERATE_POINTS:
+
+            break;
+        }
+
+
     }
 
     VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT)
@@ -208,7 +222,6 @@ public:
 
 
     typedef void (VertexIterator::*Action_cb)(); // action callback type
-
     void action_pushPoint()
     {
         const QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
@@ -228,11 +241,20 @@ public:
 
 private:
 
+    // variables for iterating over faces and points
     FaceIndex faceIndex;
     int infaceIndex;
+
+    // variables for iterating over points
+    //static constexpr int SINGLEPOINT_Deltas[1] = {1};
+    //PointIndex point1Index; // delta value get added onto this
+
+
+
     Type type;
     ActionType actionType;
     Action_cb action;
+
 
     QVector<float>& targetArray;
 
@@ -261,11 +283,17 @@ private:
                 infaceDeltas = (int*)TRIANGLES_infaceDeltas;
                 infaceDeltasSize = 3;
             break;
-            case ITERATE_LINES:
+            case ITERATE_TRIANGLES_TO_LINES:
                 faceDeltas = (int*)LINES_faceDeltas;
                 faceDeltasSize = 6;
                 infaceDeltas = (int*)LINES_infaceDeltas;
                 infaceDeltasSize = 6;
+            break;
+            case ITERATE_POINTS:
+                if (pointIndexer)
+                    delete pointIndexer;
+                pointIndexer = new IndexerRanged<PointIndex>(0, sourceArrays.points.size());
+                //pointIndex1 = 0;
             break;
                 // TODO - handle other cases ? are they even possible ?
         }
@@ -315,6 +343,11 @@ public:
         return true;
     }
 
+    bool pumpSinglePoint()
+    {
+
+    }
+
 };
 
 
@@ -322,8 +355,7 @@ public:
 class Mesh : public SourceArrays
 {
 protected:
-    /// data ready to be put into a vertex buffer
-    QVector<float> projectedFaceids; // face ids projected to window area
+    // data ready to be put into a vertex buffer
     QVector<float> color;
 
 public:
