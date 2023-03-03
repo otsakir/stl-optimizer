@@ -85,30 +85,53 @@ struct SourceArrays
 template <typename T>
 class Indexer
 {
-private:
-    T begin;
-    T pastend;
+protected:
+
+    QVector<T> deltas;
+    int deltas_i = 0;
+    T index;
 
 public:
 
+    Indexer() : Indexer(0, {1}) {};
+    Indexer(T index, QVector<T> deltas) : deltas(deltas), index(index) {};
+
     virtual bool available() = 0;
     virtual T& get() = 0;
-    virtual bool next(int step) = 0;
+
+    bool next()
+    {
+        deltas[0];
+        index += deltas[deltas_i];
+        deltas_i ++;
+        if (deltas_i >= deltas.size())
+            deltas_i = 0;
+
+        return available();
+    }
+
+    bool next(int step)
+    {
+        index += step;
+
+        return available();
+    }
 
     virtual ~Indexer() {};
 
 };
 
 template <typename T>
-class IndexerVector : public Indexer<T>
+class IndexerIndirect : public Indexer<T>
 {
+    using Indexer<T>::index;
+
 private:
     QVector<T>& vector;
-    T index;
 
 public:
-    IndexerVector(QVector<T>& vec) : vector(vec), index(0)
-    {};
+    IndexerIndirect(QVector<T>& vec) : vector(vec) {};
+    IndexerIndirect(QVector<T>& vec, QVector<T> deltas) : Indexer<T>(0, deltas), vector(vec) {};
 
     bool available() override
     {
@@ -121,26 +144,25 @@ public:
         return vector[index];
     }
 
-    bool next(int step) override
-    {
-        index += step;
 
-        return available();
-    }
 
 };
 
 template <typename T>
 class IndexerRanged : public Indexer<T>
 {
+    using Indexer<T>::index;
 
 private:
     T begin;
     T pastend;
-    T index;
 
 public:
-    IndexerRanged(T begin, T pastend) : begin(begin), pastend(pastend), index(begin) {};
+    IndexerRanged(T begin, T pastend) : IndexerRanged(begin, pastend, {1}) {}
+    IndexerRanged(T begin, T pastend, QVector<T> deltas) : Indexer<T>(begin, deltas), begin(begin), pastend(pastend)
+    {
+        assert(deltas.size() > 0);
+    };
 
     bool available() override
     {
@@ -151,13 +173,6 @@ public:
     T& get() override
     {
         return index;
-    }
-
-    bool next(int step) override
-    {
-        index += step;
-
-        return available();
     }
 
 };
@@ -211,7 +226,7 @@ public:
     {
         setType(type);
         setAction(actionType);
-        faceIndexer = new IndexerVector<FaceIndex>(*faceIds);
+        faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds);
     }
 
     ~VertexIterator()
