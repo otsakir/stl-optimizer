@@ -185,7 +185,7 @@ private:
         const QVector<FaceIndex>* faceIds = nullptr;
 
         Indexer<FaceIndex>* faceIndexer = nullptr;
-        Indexer<PointIndex>* pointIndexer = nullptr;
+        Indexer<int>* pointIndexer = nullptr;
 public:
     enum Type
     {
@@ -206,15 +206,16 @@ public:
           faceIndex(0),
           infaceIndex(0)
     {
-        setType(type);
         setAction(actionType);
         switch (type)
         {
             case ITERATE_TRIANGLES:
-                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size());
+                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,1});
+                pointIndexer = new IndexerRanged<int>(0, 3, {1,1,-2});
             break;
-            case ITERATE_POINTS:
-
+            case ITERATE_TRIANGLES_TO_LINES:
+                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,0,0,0,1});
+                pointIndexer = new IndexerRanged<int>(0, 3, {1,0,1,0,-2,0});
             break;
         }
 
@@ -222,11 +223,21 @@ public:
     }
 
     VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT)
-        : sourceArrays(sa), targetArray(target), faceIndex(0), infaceIndex(0), faceIds(faceIds)
+        : sourceArrays(sa), targetArray(target), faceIndex(0), infaceIndex(0), faceIds(faceIds), type(type)
     {
-        setType(type);
         setAction(actionType);
         faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds);
+        switch (type)
+        {
+            case ITERATE_TRIANGLES:
+                faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,1});
+                pointIndexer = new IndexerRanged<int>(0, 3, {1,1,-2});
+            break;
+            case ITERATE_TRIANGLES_TO_LINES:
+                faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,0,0,0,1});
+                pointIndexer = new IndexerRanged<int>(0, 3, {1,0,1,0,-2,0});
+            break;
+        }
     }
 
     ~VertexIterator()
@@ -265,55 +276,11 @@ private:
     //PointIndex point1Index; // delta value get added onto this
 
 
-
     Type type;
     ActionType actionType;
     Action_cb action;
 
-
     QVector<float>& targetArray;
-
-
-    static constexpr int TRIANGLES_faceDeltas[3] = {0,0,1};
-    static constexpr int TRIANGLES_infaceDeltas[3] = {1,1,-2};
-    static constexpr int LINES_faceDeltas[6] = {0,0,0,0,0,1};
-    static constexpr int LINES_infaceDeltas[6] = {1,0,1,0,-2,0};
-
-
-    int* faceDeltas = nullptr;
-    int faceDeltasSize = 0;
-    int faceDeltas_i = 0;
-    int* infaceDeltas = nullptr;
-    int infaceDeltasSize = 0;
-    int infaceDeltas_i = 0;
-
-
-    void setType(Type t)
-    {
-        switch (t)
-        {
-            case ITERATE_TRIANGLES:
-                faceDeltas = (int*)TRIANGLES_faceDeltas;
-                faceDeltasSize = 3;
-                infaceDeltas = (int*)TRIANGLES_infaceDeltas;
-                infaceDeltasSize = 3;
-            break;
-            case ITERATE_TRIANGLES_TO_LINES:
-                faceDeltas = (int*)LINES_faceDeltas;
-                faceDeltasSize = 6;
-                infaceDeltas = (int*)LINES_infaceDeltas;
-                infaceDeltasSize = 6;
-            break;
-            case ITERATE_POINTS:
-                if (pointIndexer)
-                    delete pointIndexer;
-                pointIndexer = new IndexerRanged<PointIndex>(0, sourceArrays.points.size());
-                //pointIndex1 = 0;
-            break;
-                // TODO - handle other cases ? are they even possible ?
-        }
-        type = t;
-    }
 
     void setAction(ActionType t)
     {
@@ -340,20 +307,12 @@ public:
             return false;
 
         faceIndex = faceIndexer->get();
+        infaceIndex = pointIndexer->get();
+
         ((*this).*(action))(); // invoke object method as a callback
 
-        int fd = faceDeltas[faceDeltas_i]; // fd for faceDelta
-        faceDeltas_i ++;
-        if (faceDeltas_i >= faceDeltasSize) // wrap around
-            faceDeltas_i = 0;
-
-        int id = infaceDeltas[infaceDeltas_i]; // id for infaceDelta
-        infaceDeltas_i ++;
-        if (infaceDeltas_i >= infaceDeltasSize) // wrap around
-            infaceDeltas_i = 0;
-
-        faceIndexer->next(fd);
-        infaceIndex += id;
+        faceIndexer->next();
+        pointIndexer->next();
 
         return true;
     }
