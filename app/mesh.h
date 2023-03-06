@@ -180,12 +180,6 @@ public:
 
 class VertexIterator
 {
-private:
-        const SourceArrays& sourceArrays;
-        const QVector<FaceIndex>* faceIds = nullptr;
-
-        Indexer<FaceIndex>* faceIndexer = nullptr;
-        Indexer<int>* pointIndexer = nullptr;
 public:
     enum Type
     {
@@ -200,188 +194,37 @@ public:
         ACTION_PUSH_FACEID
     };
 
-    void init()
-    {
-        switch (type)
-        {
-            case ITERATE_TRIANGLES:
-                pointIndexer = new IndexerRanged<int>(0, 3, {1,1,-2});
-            break;
-            case ITERATE_TRIANGLES_TO_LINES:
-                pointIndexer = new IndexerRanged<int>(0, 3, {1,0,1,0,-2,0});
-            break;
-            case ITERATE_POINTS:
-                pointIndexer = new IndexerRanged<int>(0, sourceArrays.points.size());
-            break;
-        }
-    }
-
-    VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT)
-        : sourceArrays(sa),
-          targetArray(target),
-          faceIndex(0),
-          infaceIndex(0),
-          type(type)
-    {
-        setAction(actionType);
-        switch (type)
-        {
-            case ITERATE_TRIANGLES:
-                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,1});
-            break;
-            case ITERATE_TRIANGLES_TO_LINES:
-                faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,0,0,0,1});
-            break;
-        }
-
-        init();
-
-    }
-
-    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT)
-        : sourceArrays(sa),
-          targetArray(target),
-          faceIndex(0),
-          infaceIndex(0),
-          faceIds(faceIds),
-          type(type)
-    {
-        setAction(actionType);
-        faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds);
-        switch (type)
-        {
-            case ITERATE_TRIANGLES:
-                faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,1});
-            break;
-            case ITERATE_TRIANGLES_TO_LINES:
-                faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,0,0,0,1});
-            break;
-        }
-
-        init();
-    }
-
-    ~VertexIterator()
-    {
-        delete faceIndexer;
-        faceIndexer = nullptr;
-    }
-
+    VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
+    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
+    void init();
+    ~VertexIterator();
 
     typedef void (VertexIterator::*Action_cb)(); // action callback type
-    void action_pushFacePoint()
-    {
-        const QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
-        targetArray.append(v.x());
-        targetArray.append(v.y());
-        targetArray.append(v.z());
-    }
+    void action_pushFacePoint();
+    void action_pushFaceId();
+    void action_pushPoint(PointIndex pointIndex);
 
-    void action_pushFaceId()
-    {
-        QVector3D faceidAsVector = hideIntInVector3D(faceIndex);
-        targetArray.append(faceidAsVector.x());
-        targetArray.append(faceidAsVector.y());
-        targetArray.append(faceidAsVector.z());
-    }
-
-    void action_pushPoint(PointIndex pointIndex)
-    {
-        const QVector3D& v = sourceArrays.points[ pointIndex ];
-        targetArray.append(v.x());
-        targetArray.append(v.y());
-        targetArray.append(v.z());
-    }
-
-    typedef bool (VertexIterator::*Pump_cb)();
-    bool pumpByFace()
-    {
-        if (!faceIndexer->available())
-            return false;
-
-        faceIndex = faceIndexer->get();
-        infaceIndex = pointIndexer->get();
-
-        ((*this).*(action))(); // invoke object method as a callback
-
-        faceIndexer->next();
-        pointIndexer->next();
-
-        return true;
-    }
-
-    bool pumpByPoint()
-    {
-        if (!pointIndexer->available())
-            return false;
-
-        action_pushPoint( pointIndexer->get());
-
-        pointIndexer->next();
-    }
+    bool pumpByFace();
+    bool pumpByPoint();
 
 
 private:
 
+    const SourceArrays& sourceArrays;
+    const QVector<FaceIndex>* faceIds = nullptr;
+
+    Indexer<FaceIndex>* faceIndexer = nullptr;
+    Indexer<int>* pointIndexer = nullptr;
     // variables for iterating over faces and points
     FaceIndex faceIndex;
     int infaceIndex;
-
-    // variables for iterating over points
-    //static constexpr int SINGLEPOINT_Deltas[1] = {1};
-    //PointIndex point1Index; // delta value get added onto this
-
 
     Type type;
     ActionType actionType;
     Action_cb action;
 
     QVector<float>& targetArray;
-
-    void setAction(ActionType t)
-    {
-        switch (t)
-        {
-            case ACTION_PUSH_POINT:
-                action = &VertexIterator::action_pushFacePoint;
-            break;
-            case ACTION_PUSH_FACEID:
-                action = &VertexIterator::action_pushFaceId;
-            break;
-        }
-        actionType = t;
-
-    }
-
-
-public:
-
-    // process next vertex
-    bool pumpFacePoint()
-    {
-        if (!faceIndexer->available())
-            return false;
-
-        faceIndex = faceIndexer->get();
-        infaceIndex = pointIndexer->get();
-
-        ((*this).*(action))(); // invoke object method as a callback
-
-        faceIndexer->next();
-        pointIndexer->next();
-
-        return true;
-    }
-
-    bool pumpSinglePoint()
-    {
-        if (!pointIndexer->available())
-            return false;
-
-        action_pushPoint( pointIndexer->get());
-
-        pointIndexer->next();
-    }
+    void setAction(ActionType t);
 
 };
 
@@ -446,6 +289,11 @@ private:
 QVector3D hideIntInVector3D(unsigned int i);
 unsigned int unhideIntFromVector3D(QVector3D& v, bool normalized=false);
 
+
+class VertexBufferDraft
+{
+    QVector<float> data;
+};
 
 } // namespace Core
 
