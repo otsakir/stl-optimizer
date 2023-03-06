@@ -11,16 +11,19 @@ using Core::VertexIterator;
 class ModelMesh : public Core::Mesh
 {
 public:
-    QVector<float> data; // point data for vertex buffers
+    //QVector<float> data; // point data for vertex buffers
     QVector<float> idprojectionData; // face ids to project
-    QVector<float> uioverlayData;
     QVector<Core::FaceIndex> uioverlayFaces;
 
-    void swallow()
+    void swallow(Core::VertexBufferDraft& targetDraft)
     {
-        data.clear();
-        VertexIterator vi(*this, data, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByFace()) {}; // process all
+        QVector<float>* target = targetDraft.registerForFrame(this);
+        if (target != nullptr)
+        {
+            assert(target != nullptr);
+            VertexIterator vi(*this, *target, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
+            while (vi.pumpByFace()) {}; // process all
+        }
 
         idprojectionData.clear();
         VertexIterator vi2(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
@@ -28,24 +31,27 @@ public:
     }
 
 
-    void swallowUioverlay()
+    void swallowUioverlay(Core::VertexBufferDraft& targetDraft)
     {
-        uioverlayData.clear();
-        VertexIterator vi(*this, &uioverlayFaces, uioverlayData, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByFace()) {};
+        QVector<float>* target = targetDraft.registerForFrame(this);
+        if (target != nullptr)
+        {
+            assert(target != nullptr);
+            VertexIterator vi(*this, &uioverlayFaces, *target, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
+            while (vi.pumpByFace()) {};
+        }
     }
 };
 
 class BasegridMesh : public Core::Mesh
 {
     float side;
-    float squareCount; // how many squares in each dimmension
+    int squareCount; // how many squares in each dimmension
     QVector3D color;
 
 public:
-    QVector<float> data; // point data for vertex buffer
 
-    BasegridMesh()
+    BasegridMesh(int squareCount, float side): squareCount(squareCount), side(side)
     {
         float square_side = side/squareCount;
 
@@ -64,11 +70,15 @@ public:
 
     }
 
-    void swallow()
+    void swallow(Core::VertexBufferDraft& targetDraft)
     {
-        data.clear();
-        VertexIterator vi(*this, data, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByPoint()) {};
+        QVector<float>* target = targetDraft.registerForFrame(this);
+        if (target != nullptr)
+        {
+            VertexIterator vi(*this, *target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
+            while (vi.pumpByPoint()) {};
+        }
+
     }
 };
 

@@ -199,11 +199,6 @@ public:
     void init();
     ~VertexIterator();
 
-    typedef void (VertexIterator::*Action_cb)(); // action callback type
-    void action_pushFacePoint();
-    void action_pushFaceId();
-    void action_pushPoint(PointIndex pointIndex);
-
     bool pumpByFace();
     bool pumpByPoint();
 
@@ -221,6 +216,11 @@ private:
 
     Type type;
     ActionType actionType;
+
+    typedef void (VertexIterator::*Action_cb)(); // action callback type
+    void action_pushFacePoint();
+    void action_pushFaceId();
+    void action_pushPoint(PointIndex pointIndex);
     Action_cb action;
 
     QVector<float>& targetArray;
@@ -292,7 +292,31 @@ unsigned int unhideIntFromVector3D(QVector3D& v, bool normalized=false);
 
 class VertexBufferDraft
 {
+private:
+    QVector<const Mesh*> registeredMeshes;
     QVector<float> data;
+
+public:
+
+    void clear()
+    {
+        registeredMeshes.clear();
+        data.clear();
+    }
+
+    QVector<float>* registerForFrame(const Mesh* mesh)
+    {
+        if (registeredMeshes.contains(mesh))
+            return nullptr;
+
+        registeredMeshes.append(mesh);
+        return &data;
+    }
+
+    const QVector<float>& getData()
+    {
+        return data;
+    }
 };
 
 } // namespace Core

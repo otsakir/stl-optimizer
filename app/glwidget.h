@@ -121,7 +121,11 @@ private:
     int zTrans = 0;
     QPoint m_lastPos;
     ModelMesh meshModel;
-    BasegridMesh basegridMesh;
+    BasegridMesh basegridMesh = BasegridMesh(10, 2.0f);
+
+    Core::VertexBufferDraft wireframeBuffer;
+    Core::VertexBufferDraft triangleBuffer;
+
 
     //Core::Mesh meshUiOverlay;
 

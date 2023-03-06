@@ -191,13 +191,12 @@ void GLWidget::updateUiOverlayMesh()
         //meshModel.uioverlayFaces.clear();
         //meshModel.uioverlayFaces.append(out_faces);
 
+        meshModel.swallowUioverlay(wireframeBuffer); // populate meshModel.uioverlayData
 
-        meshModel.swallowUioverlay(); // populate meshModel.uioverlayData
-
-        makeCurrent();
-        uiOverlayVbo.bind();
-        uiOverlayVbo.allocate(meshModel.uioverlayData.constData(), meshModel.uioverlayData.size()* sizeof(GLfloat));
-        uiOverlayVbo.release();
+//        makeCurrent();
+//        uiOverlayVbo.bind();
+//        uiOverlayVbo.allocate(data.constData(), data.size()* sizeof(GLfloat));
+//        uiOverlayVbo.release();
 
     }
 
@@ -206,13 +205,15 @@ void GLWidget::updateUiOverlayMesh()
 void GLWidget::initializeGL()
 {
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
+    triangleBuffer.clear();
+    wireframeBuffer.clear();
 
     // load primary source data
     Utils::Loader loader;
     loader.loadStl("box.stl", meshModel);
     // generate secondary source data
     meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
-    meshModel.swallow();
+    meshModel.swallow(triangleBuffer);
 
     initializeOpenGLFunctions();
     glClearColor(0, 0, 0, m_transparent ? 0 : 1);
@@ -220,7 +221,7 @@ void GLWidget::initializeGL()
     // buffer with model vertices
     vboPoints.create();
     vboPoints.bind();
-    vboPoints.allocate(meshModel.data.constData(), meshModel.data.size() * sizeof(GLfloat));
+    vboPoints.allocate(triangleBuffer.getData().constData(), triangleBuffer.getData().size() * sizeof(GLfloat));
     vboPoints.release();
 
 
@@ -335,22 +336,35 @@ void GLWidget::paintGL()
     renderState_model.vao.bind();
     renderState_model.program->bind();
     renderState_model.program->setUniformValue(0, matMvpTransformation);
-    glDrawArrays(GL_TRIANGLES, 0, meshModel.data.size()/3); // 3 floats per point
+    glDrawArrays(GL_TRIANGLES, 0, triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
 
-    // render ui overlay
+    // process wireframe data
     updateUiOverlayMesh();
+    basegridMesh.swallow(wireframeBuffer);
 
+
+    // other wireframe data here
+    // ...
+
+    // push wireframe data to the GPU
+    const QVector<float>* wireframeData = &wireframeBuffer.getData();
+    uiOverlayVbo.bind();
+    uiOverlayVbo.allocate(wireframeData->constData(), wireframeData->size()* sizeof(GLfloat));
+    uiOverlayVbo.release();
 
     glClear(GL_DEPTH_BUFFER_BIT);
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
     int loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
     renderState_uiOverlay.program->setUniformValue(loc, matMvpTransformation);
-    glDrawArrays(GL_LINES, 0, meshModel.uioverlayData.size()/3);
+    glDrawArrays(GL_LINES, 0, wireframeData->size()/3);
     renderState_uiOverlay.program->release();
     renderState_uiOverlay.vao.release();
+
+    wireframeBuffer.clear();
+    //triangleBuffer.clear();
 
 }
 
