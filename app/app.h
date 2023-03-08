@@ -16,7 +16,6 @@ public:
     //QVector<float> data; // point data for vertex buffers
     QVector<float> idprojectionData; // face ids to project
     QVector<Core::FaceIndex> uioverlayFaces;
-    QVector<float> normalData;
 
 
     void swallow();
@@ -43,6 +42,7 @@ class MeshContext
 public:
     Core::VertexBufferDraft wireframeBuffer;
     Core::VertexBufferDraft triangleBuffer;
+    Core::VertexBufferDraft normalBuffer;
 
 };
 

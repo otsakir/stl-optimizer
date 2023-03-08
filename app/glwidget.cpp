@@ -210,6 +210,7 @@ void GLWidget::initializeGL()
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
     meshContext.triangleBuffer.clear();
     meshContext.wireframeBuffer.clear();
+    meshContext.normalBuffer.clear();
 
     // generate secondary source data
     meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
@@ -223,6 +224,11 @@ void GLWidget::initializeGL()
     vboPoints.bind();
     vboPoints.allocate(meshContext.triangleBuffer.getData().constData(), meshContext.triangleBuffer.getData().size() * sizeof(GLfloat));
     vboPoints.release();
+    // and another one with normals
+    vboNormals.create();
+    vboNormals.bind();
+    vboNormals.allocate(meshContext.normalBuffer.getData().constData(), meshContext.normalBuffer.getData().size() * sizeof(GLfloat));
+    vboNormals.release();
 
 
     // buffer with face ids
@@ -240,21 +246,28 @@ void GLWidget::initializeGL()
     // main scene model
     renderState_model.setVShader(
         "attribute vec4 vertex;\n"
+        "attribute vec3 normal;\n"
         "varying vec3 vert;\n"
+        "varying vec3 vertNormal;\n"
         "uniform mat4 mvpMatrix;\n"
+        "uniform mat3 normalMatrix;\n"
         "void main() {\n"
         "   vert = vertex.xyz;\n"
+        "   vertNormal = normalMatrix * normal;\n"
         "   gl_Position = mvpMatrix * vertex;\n"
         "}\n");
     renderState_model.setFShader(
         "varying highp vec3 vert;\n"
+        "varying highp vec3 vertNormal;\n"
         "void main() {\n"
-        "   gl_FragColor = vec4(1.0, 0, 0, 1);\n"
+        "   highp vec3 lightDir = vec3(0.0, 0.0, -1.0);\n"
+        "   highp float intensity =  dot(-lightDir, vertNormal);\n"
+        "   gl_FragColor = vec4(1.0, 0, 0, 1)*intensity;\n"
         "}\n");
     renderState_model.addAttribute("vertex",vboPoints);
+    renderState_model.addAttribute("normal",vboNormals);
     renderState_model.setupProgram();
     renderState_model.setupVao();
-
 
     // id projection
     renderState_idProjection.setVShader(
@@ -320,7 +333,7 @@ void GLWidget::paintGL()
     QMatrix4x4 mview = matCamera * matWorld;
 
     matMvpTransformation = matProj * mview; // used all over the place
-
+    matNormal = mview.toGenericMatrix<3,3>();
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
@@ -337,7 +350,10 @@ void GLWidget::paintGL()
     // Render model
     renderState_model.vao.bind();
     renderState_model.program->bind();
-    renderState_model.program->setUniformValue(0, matMvpTransformation);
+    int loc = renderState_model.program->uniformLocation("mvpMatrix");
+    renderState_model.program->setUniformValue(loc, matMvpTransformation);
+    loc = renderState_model.program->uniformLocation("normalMatrix");
+    renderState_model.program->setUniformValue(loc, matNormal);
     glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
@@ -359,7 +375,7 @@ void GLWidget::paintGL()
     glClear(GL_DEPTH_BUFFER_BIT);
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
-    int loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
+    loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
     renderState_uiOverlay.program->setUniformValue(loc, matMvpTransformation);
     glDrawArrays(GL_LINES, 0, wireframeData->size()/3);
     renderState_uiOverlay.program->release();

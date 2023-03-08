@@ -23,6 +23,15 @@ void ModelMesh::swallow()
         while (vi.pumpByFace()) {}; // process all
     }
 
+    target = meshContext.normalBuffer.registerForFrame(this);
+    if (target != nullptr)
+    {
+        assert(target != nullptr);
+        VertexIterator vi(*this, *target, VertexIterator::ITERATE_PER_TRIANGLE, VertexIterator::ACTION_PUSH_NORMAL);
+        while (vi.pumpByFaceOnly()) {};
+    }
+
+
     idprojectionData.clear();
     VertexIterator vi2(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
     while (vi2.pumpByFace()) {};
@@ -44,12 +53,7 @@ ModelMesh::ModelMesh()
 {
     // load primary source data
     Utils::Loader loader;
-    loader.loadStl("box.stl", *this);
-
-    // populate normals<float> array
-    VertexIterator vi(*this, normalData, Core::VertexIterator::ITERATE_PER_TRIANGLE, Core::VertexIterator::ACTION_PUSH_NORMAL);
-    while (vi.pumpByFaceOnly()) {};
-
+    loader.loadStl("sphere.stl", *this);
 }
 
 BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount), side(side)

@@ -25,9 +25,9 @@ void RenderState::setupProgram()
     program->link();
 }
 
-void RenderState::addAttribute(const char* name, QOpenGLBuffer& vbo)
+void RenderState::addAttribute(const char* name, QOpenGLBuffer& vbo, const void* offset)
 {
-    attributes.append({name, vbo});
+    attributes.append({name, vbo, offset});
 }
 
 void RenderState::setupVao()
@@ -44,7 +44,7 @@ void RenderState::setupVao()
 
         vbo.bind();
         f->glEnableVertexAttribArray(attr_i);
-        f->glVertexAttribPointer(attr_i, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat),nullptr); // use three floats and no stride by convention
+        f->glVertexAttribPointer(attr_i, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat),attr.offset); // use three floats and no stride by convention
         vbo.release();
     }
     vao.release();

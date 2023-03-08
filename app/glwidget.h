@@ -157,6 +157,7 @@ private:
     QMatrix4x4 matCamera;
     QMatrix4x4 matWorld;
     QMatrix4x4 matMvpTransformation;
+    QMatrix3x3 matNormal; // used for lighting
     static bool m_transparent;
 };
 
