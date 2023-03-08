@@ -185,13 +185,15 @@ public:
     {
         ITERATE_TRIANGLES,
         ITERATE_TRIANGLES_TO_LINES,
-        ITERATE_POINTS
+        ITERATE_POINTS,
+        ITERATE_PER_TRIANGLE // both faces and point source buffers are needed. One iteration step per face.
     };
 
     enum ActionType
     {
         ACTION_PUSH_POINT,
-        ACTION_PUSH_FACEID
+        ACTION_PUSH_FACEID,
+        ACTION_PUSH_NORMAL
     };
 
     VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
@@ -201,6 +203,7 @@ public:
 
     bool pumpByFace();
     bool pumpByPoint();
+    bool pumpByFaceOnly(); // i.e. do not touch point indexer
 
 
 private:
@@ -221,6 +224,7 @@ private:
     void action_pushFacePoint();
     void action_pushFaceId();
     void action_pushPoint(PointIndex pointIndex);
+    void action_pushNormal();
     Action_cb action;
 
     QVector<float>& targetArray;

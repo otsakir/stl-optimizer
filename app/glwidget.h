@@ -123,8 +123,8 @@ private:
     ModelMesh meshModel;
     BasegridMesh basegridMesh = BasegridMesh(10, 2.0f);
 
-    Core::VertexBufferDraft wireframeBuffer;
-    Core::VertexBufferDraft triangleBuffer;
+    //Core::VertexBufferDraft wireframeBuffer;
+    //Core::VertexBufferDraft triangleBuffer;
 
 
     //Core::Mesh meshUiOverlay;
@@ -134,6 +134,7 @@ private:
     RenderState renderState_uiOverlay;
 
     QOpenGLBuffer vboPoints;
+    QOpenGLBuffer vboNormals;
     QOpenGLBuffer vboFaceid;
 
     // visible rendering program

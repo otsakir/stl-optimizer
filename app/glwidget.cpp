@@ -56,7 +56,6 @@
 
 #include <QDebug>
 
-#include "loader.h"
 
 using Core::Mesh;
 
@@ -181,6 +180,8 @@ void adjacentFaces(Core::Mesh& mesh, QVector<Core::FaceIndex>& inner_faces, QVec
 
 void GLWidget::updateUiOverlayMesh()
 {
+    MeshContext& meshContext = App::getMeshContext();
+
     if (selectedFace != -1)
     {
         meshModel.uioverlayFaces.clear();
@@ -191,7 +192,7 @@ void GLWidget::updateUiOverlayMesh()
         //meshModel.uioverlayFaces.clear();
         //meshModel.uioverlayFaces.append(out_faces);
 
-        meshModel.swallowUioverlay(wireframeBuffer); // populate meshModel.uioverlayData
+        meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
 
 //        makeCurrent();
 //        uiOverlayVbo.bind();
@@ -204,16 +205,15 @@ void GLWidget::updateUiOverlayMesh()
 
 void GLWidget::initializeGL()
 {
-    connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
-    triangleBuffer.clear();
-    wireframeBuffer.clear();
+    MeshContext& meshContext = App::getMeshContext();
 
-    // load primary source data
-    Utils::Loader loader;
-    loader.loadStl("box.stl", meshModel);
+    connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GLWidget::cleanup);
+    meshContext.triangleBuffer.clear();
+    meshContext.wireframeBuffer.clear();
+
     // generate secondary source data
     meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
-    meshModel.swallow(triangleBuffer);
+    meshModel.swallow();
 
     initializeOpenGLFunctions();
     glClearColor(0, 0, 0, m_transparent ? 0 : 1);
@@ -221,7 +221,7 @@ void GLWidget::initializeGL()
     // buffer with model vertices
     vboPoints.create();
     vboPoints.bind();
-    vboPoints.allocate(triangleBuffer.getData().constData(), triangleBuffer.getData().size() * sizeof(GLfloat));
+    vboPoints.allocate(meshContext.triangleBuffer.getData().constData(), meshContext.triangleBuffer.getData().size() * sizeof(GLfloat));
     vboPoints.release();
 
 
@@ -302,6 +302,8 @@ void GLWidget::initializeGL()
 
 void GLWidget::paintGL()
 {
+    MeshContext& meshContext = App::getMeshContext();
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -336,20 +338,20 @@ void GLWidget::paintGL()
     renderState_model.vao.bind();
     renderState_model.program->bind();
     renderState_model.program->setUniformValue(0, matMvpTransformation);
-    glDrawArrays(GL_TRIANGLES, 0, triangleBuffer.getData().size()/3); // 3 floats per point
+    glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
 
     // process wireframe data
     updateUiOverlayMesh();
-    basegridMesh.swallow(wireframeBuffer);
+    basegridMesh.swallow(meshContext.wireframeBuffer);
 
 
     // other wireframe data here
     // ...
 
     // push wireframe data to the GPU
-    const QVector<float>* wireframeData = &wireframeBuffer.getData();
+    const QVector<float>* wireframeData = &meshContext.wireframeBuffer.getData();
     uiOverlayVbo.bind();
     uiOverlayVbo.allocate(wireframeData->constData(), wireframeData->size()* sizeof(GLfloat));
     uiOverlayVbo.release();
@@ -363,7 +365,7 @@ void GLWidget::paintGL()
     renderState_uiOverlay.program->release();
     renderState_uiOverlay.vao.release();
 
-    wireframeBuffer.clear();
+    meshContext.wireframeBuffer.clear();
     //triangleBuffer.clear();
 
 }

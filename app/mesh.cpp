@@ -56,6 +56,9 @@ void VertexIterator::init()
         case ITERATE_POINTS:
             pointIndexer = new IndexerRanged<int>(0, sourceArrays.points.size());
         break;
+        case ITERATE_PER_TRIANGLE:
+            pointIndexer = new IndexerRanged<int>(0, sourceArrays.points.size(), {3});
+        break;
     }
 }
 
@@ -74,6 +77,9 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, T
         break;
         case ITERATE_TRIANGLES_TO_LINES:
             faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,0,0,0,1});
+        break;
+        case ITERATE_PER_TRIANGLE:
+            faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{1});
         break;
     }
 
@@ -98,6 +104,9 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceI
         break;
         case ITERATE_TRIANGLES_TO_LINES:
             faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,0,0,0,1});
+        break;
+        case ITERATE_PER_TRIANGLE:
+            assert(false); // throw error for now. Have a better look at spoint point - TODO
         break;
     }
 
@@ -135,6 +144,24 @@ void VertexIterator::action_pushPoint(PointIndex pointIndex)
     targetArray.append(v.z());
 }
 
+void VertexIterator::action_pushNormal()
+{
+    const QVector3D& p1 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[0] ];
+    const QVector3D& p2 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[1] ];
+    const QVector3D& p3 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[2] ];
+
+    const QVector3D v1 = p2-p1;
+    const QVector3D v2 = p3-p2;
+
+    QVector3D n = QVector3D::normal(v1,v2);
+    for (int i=0; i<3; i++) // same normal for all points of a face
+    {
+        targetArray.append(n.x());
+        targetArray.append(n.y());
+        targetArray.append(n.z());
+    }
+}
+
 
 bool VertexIterator::pumpByFace()
 {
@@ -144,13 +171,26 @@ bool VertexIterator::pumpByFace()
     faceIndex = faceIndexer->get();
     infaceIndex = pointIndexer->get();
 
-    ((*this).*(action))(); // invoke object method as a callback
+    ((*this).*(action))();
 
     faceIndexer->next();
     pointIndexer->next();
 
     return true;
 }
+
+bool VertexIterator::pumpByFaceOnly() // i.e. do not touch point indexer
+{
+    if (!faceIndexer->available())
+        return false;
+
+    faceIndex = faceIndexer->get();
+    ((*this).*(action))();
+    faceIndexer->next();
+
+    return true;
+}
+
 
 bool VertexIterator::pumpByPoint()
 {
@@ -172,6 +212,9 @@ void VertexIterator::setAction(ActionType t)
         break;
         case ACTION_PUSH_FACEID:
             action = &VertexIterator::action_pushFaceId;
+        break;
+        case ACTION_PUSH_NORMAL:
+            action = &VertexIterator::action_pushNormal;
         break;
     }
     actionType = t;
