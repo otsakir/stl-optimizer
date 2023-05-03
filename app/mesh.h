@@ -27,10 +27,12 @@ typedef unsigned int PointIndex; // integer type that points to an array of vert
 typedef unsigned int FaceIndex;
 
 
-
+/*!
+    \brief Keeps connections between points
+*/
 struct PointGraph
 {
-    QVector<QVector<PointIndex>> connections; // TODO - set default size to 0
+    QVector<QVector<PointIndex>> connections; // for each point holds an array of point this is connected to - TODO: set default size to 0
     int pointCount = 0;  // 0 is an invalid value if PointGraph has been initialized
 
     // non-qt implementation
@@ -61,6 +63,11 @@ public:
 typedef Face<3> Triangle;
 
 
+/*!
+    \brief Data model for a mesh
+
+    Keeps primary point and face data as well as processed data on the mesh.
+*/
 struct SourceArrays
 {
     // primary source data
@@ -68,8 +75,8 @@ struct SourceArrays
     QVector<Triangle> faces;
     // secondary source data
     PointGraph graph;
-    QVector<QVector<FaceIndex>> pointFaces; // faces per point - point indexing follows the the numbering of `points` array
-    QVector<QVector<FaceIndex>> faceFaces;  // adjacent faces for each face
+    QVector<QVector<FaceIndex>> pointFaces; // for each point there is an array of faces. Point and face indices point to 'points' and 'faces' arrays respectively.
+    QVector<QVector<FaceIndex>> faceFaces;  // tells which faces are adjacent to a face. Faces indices point to 'faces' array.
 
     void clear()
     {
@@ -247,17 +254,17 @@ public:
 
     enum ChewTypeFields
     {
-        CHEW_NORMALS = 1,
-        CHEW_FACEIDS = 2,
-        CHEW_GRAPH = 4
+        //CHEW_NORMALS = 1,
+        //CHEW_FACEIDS = 2,
+        CHEW_GRAPH = 1
     };
 
     union ChewType
     {
         struct Bits
         {
-            bool normals: 1;
-            bool faceIds: 1;
+            //bool normals: 1;
+            //bool faceIds: 1;
             bool graph: 1;
         };
 
@@ -278,8 +285,8 @@ public:
     Mesh();
     QVector<QVector3D>& getPoints(); // use for pushing points onto 'points' vector
 
-    void chew(ChewType chewType); // process 'high-level' vertex data to produce raw values for vertex buffers
-    ChewType chewType(); // returns the chew type used for processing vertex info
+    void chew(ChewType chewType); // processes primary point and face data to product higher level secondary mesh data like a graph of points, faces adjacent to points etc.
+    //ChewType chewType(); // returns the chew type used for processing vertex info
 
     friend class Utils::Loader;
 

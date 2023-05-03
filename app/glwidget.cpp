@@ -213,7 +213,7 @@ void GLWidget::initializeGL()
     meshContext.normalBuffer.clear();
 
     // generate secondary source data
-    meshModel.chew(Core::Mesh::CHEW_GRAPH | Core::Mesh::CHEW_FACEIDS);
+    meshModel.chew(Core::Mesh::CHEW_GRAPH );
     meshModel.swallow();
 
     initializeOpenGLFunctions();
@@ -323,6 +323,8 @@ void GLWidget::paintGL()
 
     // camera
     matCamera.setToIdentity();
+    matCamera.translate(0,0,10);
+
     // world
     matWorld.setToIdentity();
     matWorld.translate(0,0,-5.0);
@@ -330,7 +332,7 @@ void GLWidget::paintGL()
     matWorld.rotate(m_yRot / 16.0f, 0, 1, 0);
     matWorld.rotate(m_zRot / 16.0f, 0, 0, 1);
     // camera & world
-    QMatrix4x4 mview = matCamera * matWorld;
+    QMatrix4x4 mview = matCamera.inverted() * matWorld;
 
     matMvpTransformation = matProj * mview; // used all over the place
     matNormal = mview.toGenericMatrix<3,3>();

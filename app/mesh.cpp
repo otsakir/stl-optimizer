@@ -222,7 +222,6 @@ void VertexIterator::setAction(ActionType t)
 }
 
 
-
 Mesh::Mesh()
 {
 
@@ -240,6 +239,7 @@ void Mesh::chew(ChewType chewType)
 
     chewTypeUsed = chewType;
 
+    // pupulate point graph array. Find all connection/edges between points.
     if (chewType.bits.graph)
     {
         graph.resize(points.size());
@@ -264,7 +264,7 @@ void Mesh::chew(ChewType chewType)
         {
             pointFaces[point_i].clear();
         }
-
+        // Populate pointFaces array. Find faces for each point.
         for (int face_i=0; face_i < faces.size(); face_i++ )
         {
             Triangle& triangle = faces[face_i];
@@ -277,7 +277,7 @@ void Mesh::chew(ChewType chewType)
                 }
             }
         }
-
+        // populate faceFaces
         faceFaces.resize(faces.size());
         for (int face_i=0; face_i < faces.size(); face_i++ )
         {
@@ -303,10 +303,12 @@ void Mesh::chew(ChewType chewType)
 
 }
 
+/*
 Mesh::ChewType Mesh::chewType()
 {
     return chewTypeUsed;
 }
+*/
 
 // resize and clear
 void PointGraph::resize(size_t pointCount/*, size_t relatedCount*/)
