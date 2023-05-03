@@ -55,7 +55,8 @@
 #include <QCommandLineOption>
 
 #include "glwidget.h"
-#include "mainwindow.h"
+//#include "mainwindow.h"
+#include "appwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -65,10 +66,10 @@ int main(int argc, char *argv[])
     //QVector3D v = Mesh::hideIntInVector3D(i);
     //unsigned int j = Mesh::unhideIntFromVector3D(v);
 
-    QCoreApplication::setApplicationName("Qt Hello GL 2 Example");
-    QCoreApplication::setOrganizationName("QtProject");
+    QCoreApplication::setApplicationName("STL tweaker");
+    QCoreApplication::setOrganizationName("otsakir");
     QCoreApplication::setApplicationVersion(QT_VERSION_STR);
-    QCommandLineParser parser;
+    /*QCommandLineParser parser;
     parser.setApplicationDescription(QCoreApplication::applicationName());
     parser.addHelpOption();
     parser.addVersionOption();
@@ -80,25 +81,26 @@ int main(int argc, char *argv[])
     parser.addOption(transparentOption);
 
     parser.process(app);
-
+*/
     QSurfaceFormat fmt;
     fmt.setDepthBufferSize(24);
-    if (parser.isSet(multipleSampleOption))
+   /* if (parser.isSet(multipleSampleOption))
         fmt.setSamples(4);
     if (parser.isSet(coreProfileOption)) {
         fmt.setVersion(3, 2);
         fmt.setProfile(QSurfaceFormat::CoreProfile);
     }
+    */
     QSurfaceFormat::setDefaultFormat(fmt);
 
-    MainWindow mainWindow;
+    AppWindow mainWindow;
 
-    GLWidget::setTransparent(parser.isSet(transparentOption));
-    if (GLWidget::isTransparent()) {
-        mainWindow.setAttribute(Qt::WA_TranslucentBackground);
-        mainWindow.setAttribute(Qt::WA_NoSystemBackground, false);
-    }
-    mainWindow.resize(mainWindow.sizeHint());
+    //GLWidget::setTransparent(parser.isSet(transparentOption));
+    //if (GLWidget::isTransparent()) {
+    //    mainWindow.setAttribute(Qt::WA_TranslucentBackground);
+    //    mainWindow.setAttribute(Qt::WA_NoSystemBackground, false);
+   // }
+    /*mainWindow.resize(mainWindow.sizeHint());
     int desktopArea = QApplication::desktop()->width() *
                      QApplication::desktop()->height();
     int widgetArea = mainWindow.width() * mainWindow.height();
@@ -106,5 +108,7 @@ int main(int argc, char *argv[])
         mainWindow.show();
     else
         mainWindow.showMaximized();
+        */
+    mainWindow.show();
     return app.exec();
 }
