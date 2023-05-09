@@ -476,3 +476,8 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     m_lastPos = event->pos();
     qInfo() << "mouse moved";
 }
+
+void GLWidget::wheelEvent(QWheelEvent *event)
+{
+    event->ignore();
+}
