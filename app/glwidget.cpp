@@ -178,7 +178,8 @@ void adjacentFaces(Core::Mesh& mesh, QVector<Core::FaceIndex>& inner_faces, QVec
     }
 }
 
-void GLWidget::updateUiOverlayMesh()
+/// Rebuild face set that constitutes the overlay. Does not push to buffer draft.
+bool GLWidget::updateUiOverlay()
 {
     MeshContext& meshContext = App::getMeshContext();
 
@@ -187,12 +188,14 @@ void GLWidget::updateUiOverlayMesh()
         meshModel.uioverlayFaces.clear();
         meshModel.uioverlayFaces.append(selectedFace);
 
+        return true;
+
         //QVector<Core::FaceIndex> out_faces;
         //adjacentFaces(meshModel, meshModel.uioverlayFaces, out_faces);
         //meshModel.uioverlayFaces.clear();
         //meshModel.uioverlayFaces.append(out_faces);
 
-        meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
+        //meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
 
 //        makeCurrent();
 //        uiOverlayVbo.bind();
@@ -200,6 +203,7 @@ void GLWidget::updateUiOverlayMesh()
 //        uiOverlayVbo.release();
 
     }
+    return false;
 
 }
 
@@ -321,26 +325,32 @@ void GLWidget::paintGL()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-    // camera
-    matCamera.setToIdentity();
-    matCamera.translate(0,0,10);
+    // view transformation (camera)
+    QMatrix4x4 vTrans;
+    // vTrans.setToIdentity(); // implied
+    vTrans.translate(0,0,10);
+    vTrans = vTrans.inverted();
 
-    // world
-    matWorld.setToIdentity();
-    matWorld.translate(0,0,-5.0);
-    matWorld.rotate(m_xRot / 16.0f, 1, 0, 0);
-    matWorld.rotate(m_yRot / 16.0f, 0, 1, 0);
-    matWorld.rotate(m_zRot / 16.0f, 0, 0, 1);
+    // world transformation (transform the world as whole)
+    QMatrix4x4 wTrans;
+    // wTrans.setToIndentity();
+    wTrans.translate(0,0,-5.0);
+    wTrans.rotate(m_xRot / 16.0f, 1, 0, 0);
+    wTrans.rotate(m_yRot / 16.0f, 0, 1, 0);
+    wTrans.rotate(m_zRot / 16.0f, 0, 0, 1);
+
     // camera & world
-    QMatrix4x4 mview = matCamera.inverted() * matWorld;
+    QMatrix4x4 vwTrans = vTrans * wTrans;
+    QMatrix4x4 pvwTrans = pTrans * vwTrans; // used all over the place
 
-    matMvpTransformation = matProj * mview; // used all over the place
-    matNormal = mview.toGenericMatrix<3,3>();
+
+    //matMvpTransformation = pTrans * vwTrans;
+    QMatrix3x3 normalTrans3 = vwTrans.toGenericMatrix<3,3>();
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, matMvpTransformation);
+    renderState_idProjection.program->setUniformValue(0, pvwTrans);
     fbo->bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, meshModel.idprojectionData.size()/3);
@@ -348,25 +358,23 @@ void GLWidget::paintGL()
     fbo->release();
     renderState_idProjection.vao.release();
 
-
     // Render model
     renderState_model.vao.bind();
     renderState_model.program->bind();
     int loc = renderState_model.program->uniformLocation("mvpMatrix");
-    renderState_model.program->setUniformValue(loc, matMvpTransformation);
+    renderState_model.program->setUniformValue(loc, pvwTrans);
     loc = renderState_model.program->uniformLocation("normalMatrix");
-    renderState_model.program->setUniformValue(loc, matNormal);
+    renderState_model.program->setUniformValue(loc, normalTrans3);
     glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
 
     // process wireframe data
-    updateUiOverlayMesh();
+    if (updateUiOverlay()) // update set of faces according to UI state
+    {
+        meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
+    }
     basegridMesh.swallow(meshContext.wireframeBuffer);
-
-
-    // other wireframe data here
-    // ...
 
     // push wireframe data to the GPU
     const QVector<float>* wireframeData = &meshContext.wireframeBuffer.getData();
@@ -374,12 +382,31 @@ void GLWidget::paintGL()
     uiOverlayVbo.allocate(wireframeData->constData(), wireframeData->size()* sizeof(GLfloat));
     uiOverlayVbo.release();
 
-    glClear(GL_DEPTH_BUFFER_BIT);
+    //QMatrix4x4 vpTrans =
+    // projection trans - camera trans (place camera and place inverse trans) - worldPlacing (rotate and move the world in front of camera) - basegridMesh.world (place properly in the world)
+    //QMatrix4x4 wvpTrans = basegridMesh.world * ;
+
+    //glClear(GL_DEPTH_BUFFER_BIT);
+    // render basegrid overlay
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
     loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
-    renderState_uiOverlay.program->setUniformValue(loc, matMvpTransformation);
-    glDrawArrays(GL_LINES, 0, wireframeData->size()/3);
+    renderState_uiOverlay.program->setUniformValue(loc, pvwTrans * basegridMesh.modelTrans);
+
+    Core::VertexBufferDraft::RegisteredInfo* meshinfo = meshContext.wireframeBuffer.getMeshInfo(&basegridMesh);
+    if (meshinfo)
+    {
+        glDrawArrays(GL_LINES, meshinfo->offset/3, meshinfo->size/3);
+    }
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderState_uiOverlay.program->setUniformValue(loc, pvwTrans);
+    meshinfo = meshContext.wireframeBuffer.getMeshInfo(&meshModel);
+    if (meshinfo)
+    {
+        glDrawArrays(GL_LINES, meshinfo->offset/3, meshinfo->size/3);
+    }
+
     renderState_uiOverlay.program->release();
     renderState_uiOverlay.vao.release();
 
@@ -390,8 +417,8 @@ void GLWidget::paintGL()
 
 void GLWidget::resizeGL(int w, int h)
 {
-    matProj.setToIdentity();
-    matProj.perspective(45.0f, GLfloat(w) / h, 0.01f, 100.0f); // near/far only care about clipping
+    pTrans.setToIdentity();
+    pTrans.perspective(45.0f, GLfloat(w) / h, 0.01f, 100.0f); // near/far only care about clipping
 
     if (fbo)
     {
@@ -422,7 +449,7 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
     } else
     {
         this->selectedFace = faceid;
-        updateUiOverlayMesh();
+        updateUiOverlay();
         update();
     }
 

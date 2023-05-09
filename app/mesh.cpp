@@ -62,12 +62,14 @@ void VertexIterator::init()
     }
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type, ActionType actionType)
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type, ActionType actionType, Pump_cb pumpCallback)
     : sourceArrays(sa),
       targetArray(target),
       faceIndex(0),
       infaceIndex(0),
-      type(type)
+      type(type),
+      pumpFunction(pumpCallback),
+      bufferDraft(0)
 {
     setAction(actionType);
     switch (type)
@@ -87,13 +89,23 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, T
 
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType)
+VertexIterator::VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type, ActionType actionType, Pump_cb pumpCallback)
+    : VertexIterator(sa, *(bufferDraft.registerForFrame(&sa)), type, actionType, pumpCallback)
+{
+    this->bufferDraft = &bufferDraft;
+}
+
+
+
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType, Pump_cb pumpCallback)
     : sourceArrays(sa),
       targetArray(target),
       faceIndex(0),
       infaceIndex(0),
       faceIds(faceIds),
-      type(type)
+      type(type),
+      pumpFunction(pumpCallback),
+      bufferDraft(0)
 {
     setAction(actionType);
     faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds);
@@ -111,6 +123,12 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceI
     }
 
     init();
+}
+
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type, ActionType actionType, Pump_cb pumpCallback)
+    : VertexIterator(sa, faceIds, *(bufferDraft.registerForFrame(&sa)), type, actionType, pumpCallback)
+{
+    this->bufferDraft = &bufferDraft;
 }
 
 VertexIterator::~VertexIterator()
@@ -162,7 +180,7 @@ void VertexIterator::action_pushNormal()
     }
 }
 
-
+/// Iterate on faces and points within them.
 bool VertexIterator::pumpByFace()
 {
     if (!faceIndexer->available())
@@ -171,7 +189,8 @@ bool VertexIterator::pumpByFace()
     faceIndex = faceIndexer->get();
     infaceIndex = pointIndexer->get();
 
-    ((*this).*(action))();
+    //((*this).*(action))();
+    (this->*actionFunction)();
 
     faceIndexer->next();
     pointIndexer->next();
@@ -179,19 +198,20 @@ bool VertexIterator::pumpByFace()
     return true;
 }
 
+/// Iterate on faces only (i.e. do not touch point indexer) and perform action once for each iteration.
 bool VertexIterator::pumpByFaceOnly() // i.e. do not touch point indexer
 {
     if (!faceIndexer->available())
         return false;
 
     faceIndex = faceIndexer->get();
-    ((*this).*(action))();
+    ((*this).*(actionFunction))();
     faceIndexer->next();
 
     return true;
 }
 
-
+/// Push source point to target, move to next point. Ignore source faces, assume ACTION_PUSH_POINT.
 bool VertexIterator::pumpByPoint()
 {
     if (!pointIndexer->available())
@@ -199,22 +219,41 @@ bool VertexIterator::pumpByPoint()
 
     action_pushPoint( pointIndexer->get());
 
-    pointIndexer->next();
+    return pointIndexer->next();
 }
 
+/// Opaque interface for pumpBy* functions.
+bool VertexIterator::pump()
+{
+    return (this->*pumpFunction)();
+}
+
+/// Performs pump cycles until points/faces end. If a vertex buffer draft was given, it will mark pumped block offset and size.
+void VertexIterator::pumpAll()
+{
+    if (bufferDraft)
+    {
+        bufferDraft->startCountingPumped();
+        while (pump()) {};
+        bufferDraft->stopCountingPumped();
+    } else
+    {
+        while (pump()) {};
+    }
+}
 
 void VertexIterator::setAction(ActionType t)
 {
     switch (t)
     {
         case ACTION_PUSH_POINT:
-            action = &VertexIterator::action_pushFacePoint;
+            actionFunction = &VertexIterator::action_pushFacePoint;
         break;
         case ACTION_PUSH_FACEID:
-            action = &VertexIterator::action_pushFaceId;
+            actionFunction = &VertexIterator::action_pushFaceId;
         break;
         case ACTION_PUSH_NORMAL:
-            action = &VertexIterator::action_pushNormal;
+            actionFunction = &VertexIterator::action_pushNormal;
         break;
     }
     actionType = t;
@@ -301,6 +340,16 @@ void Mesh::chew(ChewType chewType)
     }
 
 
+}
+
+void Mesh::swallow(Core::VertexBufferDraft& targetDraft)
+{
+    QVector<float>* target = targetDraft.registerForFrame(this);
+    if (target != nullptr)
+    {
+        VertexIterator vi(*this, *target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
+        while (vi.pumpByPoint()) {};
+    }
 }
 
 /*

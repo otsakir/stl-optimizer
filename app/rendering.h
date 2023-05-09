@@ -21,7 +21,7 @@ public:
 
     struct Attribute
     {
-        const char* name;
+        const char* name; // attribute name as written in the vertex shader
         QOpenGLBuffer& vbo;
         const void* offset;
     };

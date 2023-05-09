@@ -13,7 +13,6 @@ class ModelMesh : public Core::Mesh
 {
 
 public:
-    //QVector<float> data; // point data for vertex buffers
     QVector<float> idprojectionData; // face ids to project
     QVector<Core::FaceIndex> uioverlayFaces;
 
@@ -33,6 +32,12 @@ class BasegridMesh : public Core::Mesh
 public:
 
     BasegridMesh(int squareCount, float side);
+    void swallow(Core::VertexBufferDraft& targetDraft);
+};
+
+class OverlayMesh : public Core::Mesh
+{
+public:
     void swallow(Core::VertexBufferDraft& targetDraft);
 };
 

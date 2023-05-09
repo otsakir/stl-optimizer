@@ -15,38 +15,22 @@ namespace App
 
 void ModelMesh::swallow()
 {
-    QVector<float>* target = meshContext.triangleBuffer.registerForFrame(this);
-    if (target != nullptr)
-    {
-        assert(target != nullptr);
-        VertexIterator vi(*this, *target, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByFace()) {}; // process all
-    }
+    VertexIterator vi(*this, meshContext.triangleBuffer, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT, &VertexIterator::pumpByFace);
+    vi.pumpAll();
 
-    target = meshContext.normalBuffer.registerForFrame(this);
-    if (target != nullptr)
-    {
-        assert(target != nullptr);
-        VertexIterator vi(*this, *target, VertexIterator::ITERATE_PER_TRIANGLE, VertexIterator::ACTION_PUSH_NORMAL);
-        while (vi.pumpByFaceOnly()) {};
-    }
-
+    VertexIterator vi2(*this, meshContext.normalBuffer, VertexIterator::ITERATE_PER_TRIANGLE, VertexIterator::ACTION_PUSH_NORMAL, &VertexIterator::pumpByFaceOnly);
+    vi2.pumpAll();
 
     idprojectionData.clear();
-    VertexIterator vi2(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
-    while (vi2.pumpByFace()) {};
+    VertexIterator vi3(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID, &VertexIterator::pumpByFace);
+    vi3.pumpAll();
 }
 
 
 void ModelMesh::swallowUioverlay(Core::VertexBufferDraft& targetDraft)
 {
-    QVector<float>* target = targetDraft.registerForFrame(this);
-    if (target != nullptr)
-    {
-        assert(target != nullptr);
-        VertexIterator vi(*this, &uioverlayFaces, *target, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByFace()) {};
-    }
+    VertexIterator vi(*this, &uioverlayFaces, targetDraft, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT, &VertexIterator::pumpByFace);
+    vi.pumpAll();
 }
 
 ModelMesh::ModelMesh()
@@ -71,18 +55,23 @@ BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount
         points.append( QVector3D(square_side*i, 0.0f, 0.0f) );
         points.append( QVector3D(square_side*i, side, 0.0f) );
     }
+    modelTrans.translate(-side/2,0,side/2);
+    modelTrans.rotate(-90, 1,0,0);
+
 
 
 }
 
+// appends processed vertices to the end of the draft
 void BasegridMesh::swallow(Core::VertexBufferDraft& targetDraft)
 {
-    QVector<float>* target = targetDraft.registerForFrame(this);
-    if (target != nullptr)
-    {
-        VertexIterator vi(*this, *target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
-        while (vi.pumpByPoint()) {};
-    }
+        VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT, &Core::VertexIterator::pumpByPoint);
+        vi.pumpAll();
+}
 
+void OverlayMesh::swallow(Core::VertexBufferDraft& targetDraft)
+{
+    VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT, &Core::VertexIterator::pumpByPoint);
+    vi.pumpAll();
 }
 

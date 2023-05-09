@@ -3,6 +3,7 @@
 
 #include <QVector3D>
 #include <QVector>
+#include "qmatrix4x4.h"
 #include "qvector3d.h"
 #include <functional>
 
@@ -88,15 +89,19 @@ struct SourceArrays
     }
 };
 
-
+/*!
+ * \brief Ιndex generator base class
+ *
+ * Use with get(), next() and available().
+ */
 template <typename T>
 class Indexer
 {
 protected:
 
-    QVector<T> deltas;
-    int deltas_i = 0;
-    T index;
+    QVector<T> deltas; // array with delta values to add to current 'Index'
+    int deltas_i = 0; // Index within deltas array. It will wrap-around at the end of it.
+    T index; // Current index value.
 
 public:
 
@@ -108,7 +113,7 @@ public:
 
     bool next()
     {
-        deltas[0];
+        //deltas[0];
         index += deltas[deltas_i];
         deltas_i ++;
         if (deltas_i >= deltas.size())
@@ -128,33 +133,12 @@ public:
 
 };
 
-template <typename T>
-class IndexerIndirect : public Indexer<T>
-{
-    using Indexer<T>::index;
-
-private:
-    QVector<T>& vector;
-
-public:
-    IndexerIndirect(QVector<T>& vec) : vector(vec) {};
-    IndexerIndirect(QVector<T>& vec, QVector<T> deltas) : Indexer<T>(0, deltas), vector(vec) {};
-
-    bool available() override
-    {
-        return (index < vector.size());
-    }
-
-    // returns current index
-    T& get() override
-    {
-        return vector[index];
-    }
-
-
-
-};
-
+/*!
+ * \brief Index generator moving in steps
+ *
+ * Produces a range of values advancing in given increment steps. If the steps
+ * add up to 0 it will keep circling around.
+ */
 template <typename T>
 class IndexerRanged : public Indexer<T>
 {
@@ -176,7 +160,7 @@ public:
         return (index < pastend);
     }
 
-    // returns _current_ index
+    /// returns current index
     T& get() override
     {
         return index;
@@ -184,34 +168,79 @@ public:
 
 };
 
+/*!
+ * \brief Index generator using lookup array
+ *
+ * Instead of directly returning indices, it will use them to lookup values in an
+ * arbitrary intermediate array.
+ */
+template <typename T>
+class IndexerIndirect : public Indexer<T>
+{
+    using Indexer<T>::index;
+
+private:
+    QVector<T>& vector; /// lookup array
+
+public:
+    IndexerIndirect(QVector<T>& vec) : vector(vec) {};
+    IndexerIndirect(QVector<T>& vec, QVector<T> deltas) : Indexer<T>(0, deltas), vector(vec) {};
+
+    bool available() override
+    {
+        return (index < vector.size());
+    }
+
+    /// returns current index
+    T& get() override
+    {
+        return vector[index];
+    }
+
+
+
+};
+
+
+class VertexBufferDraft;
 
 class VertexIterator
 {
 public:
     enum Type
     {
-        ITERATE_TRIANGLES,
-        ITERATE_TRIANGLES_TO_LINES,
-        ITERATE_POINTS,
+        ITERATE_TRIANGLES, // for each face produce 3 points A, B, C.
+        ITERATE_TRIANGLES_TO_LINES, // for each face produce points A-B, B-C, C-A
+        ITERATE_POINTS, // go over all source mesh 'points' one by one
         ITERATE_PER_TRIANGLE // both faces and point source buffers are needed. One iteration step per face.
     };
 
     enum ActionType
     {
-        ACTION_PUSH_POINT,
+        ACTION_PUSH_POINT, // pushed the point determined by face/
         ACTION_PUSH_FACEID,
         ACTION_PUSH_NORMAL
     };
 
-    VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
-    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
+    typedef bool (VertexIterator::*Pump_cb)(); // typedef a member function pointer to pumpBy*() members
+
+    //
+    VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    // iterator within face id lookup table that pushes directly to a QVector target
+    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    // iterator within face id lookup table that appends to a VertexBufferDraft
+    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+
     void init();
     ~VertexIterator();
 
     bool pumpByFace();
     bool pumpByPoint();
-    bool pumpByFaceOnly(); // i.e. do not touch point indexer
-
+    bool pumpByFaceOnly();
+    bool pump();
+    void pumpAll();
+    Pump_cb pumpFunction;
 
 private:
 
@@ -228,17 +257,17 @@ private:
     ActionType actionType;
 
     typedef void (VertexIterator::*Action_cb)(); // action callback type
-    void action_pushFacePoint();
+    void action_pushFacePoint(); /// Push a QVector3D point determined from faceIndec/infaceIndex to target after converting it to 3 floats.
     void action_pushFaceId();
-    void action_pushPoint(PointIndex pointIndex);
+    void action_pushPoint(PointIndex pointIndex); /// Push a QVector3D point from mesh.points into target after converting it to 3 floats.
     void action_pushNormal();
-    Action_cb action;
+    Action_cb actionFunction;
 
     QVector<float>& targetArray;
+    VertexBufferDraft* bufferDraft;
     void setAction(ActionType t);
 
 };
-
 
 
 class Mesh : public SourceArrays
@@ -249,6 +278,7 @@ protected:
 
 public:
 
+    QMatrix4x4 modelTrans; // place item in the world
     typedef Triangle FaceType;
 
 
@@ -284,9 +314,9 @@ public:
 
     Mesh();
     QVector<QVector3D>& getPoints(); // use for pushing points onto 'points' vector
-
     void chew(ChewType chewType); // processes primary point and face data to product higher level secondary mesh data like a graph of points, faces adjacent to points etc.
     //ChewType chewType(); // returns the chew type used for processing vertex info
+    void swallow(Core::VertexBufferDraft& targetDraft);
 
     friend class Utils::Loader;
 
@@ -301,26 +331,60 @@ QVector3D hideIntInVector3D(unsigned int i);
 unsigned int unhideIntFromVector3D(QVector3D& v, bool normalized=false);
 
 
+/*!
+ * \brief The VertexBufferDraft class
+ *
+ * A QVector with blocks of vertex data and supplementary information for these blocks.
+ */
 class VertexBufferDraft
 {
+public:
+    struct RegisteredInfo
+    {
+        int offset;
+        int size;
+
+        RegisteredInfo(int offset = 0)
+        {
+            this->offset = offset;
+            size = 0;
+        }
+
+    };
+
 private:
-    QVector<const Mesh*> registeredMeshes;
+    QVector<const SourceArrays*> registeredMeshes;
+    QVector<RegisteredInfo> registeredInfo;
     QVector<float> data;
+
+    void startCountingPumped()
+    {
+        registeredInfo.append(RegisteredInfo(data.size()));
+    }
+
+    void stopCountingPumped()
+    {
+        RegisteredInfo& info = registeredInfo.last();
+        info.size = data.size() - info.offset;
+    }
 
 public:
 
     void clear()
     {
         registeredMeshes.clear();
+        registeredInfo.clear();
         data.clear();
     }
 
-    QVector<float>* registerForFrame(const Mesh* mesh)
+    QVector<float>* registerForFrame(const SourceArrays* mesh)
     {
         if (registeredMeshes.contains(mesh))
             return nullptr;
 
         registeredMeshes.append(mesh);
+
+
         return &data;
     }
 
@@ -328,6 +392,20 @@ public:
     {
         return data;
     }
+
+    // same as getData() but will also return an offset inside the 'data' QVector where the data for the specific mesh reside or -1 if the mesh* is not found
+    RegisteredInfo* getMeshInfo(const SourceArrays* mesh)
+    {
+        int infoIndex = registeredMeshes.indexOf(mesh);
+        if (infoIndex == -1)
+        {
+            return 0;
+        }
+
+        return &registeredInfo[infoIndex];
+    }
+
+    friend void VertexIterator::pumpAll();
 };
 
 } // namespace Core
