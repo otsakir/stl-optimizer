@@ -8,6 +8,10 @@
 
 using Core::VertexIterator;
 
+namespace Config
+{
+    static const float wheelDegreesToZUnits = 1.0f/20.0f;
+};
 
 class ModelMesh : public Core::Mesh
 {
