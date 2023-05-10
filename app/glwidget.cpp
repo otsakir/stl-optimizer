@@ -146,6 +146,13 @@ void GLWidget::setZTranslation(int length)
     update();
 }
 
+void GLWidget::updateZoomLevel(int degreesDelta)
+{
+    zoomLevel += degreesDelta;
+    qDebug() << "updateZoomLevel: " << degreesDelta << zoomLevel;
+    update();
+}
+
 
 void GLWidget::cleanup()
 {
@@ -328,7 +335,7 @@ void GLWidget::paintGL()
     // view transformation (camera)
     QMatrix4x4 vTrans;
     // vTrans.setToIdentity(); // implied
-    vTrans.translate(0,0,10);
+    vTrans.translate(0,0,10.0f + (float)zoomLevel * Config::wheelDegreesToZUnits);
     vTrans = vTrans.inverted();
 
     // world transformation (transform the world as whole)
@@ -479,5 +486,9 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
+    QPoint numPixels = event->pixelDelta();
+    QPoint numDegrees = event->angleDelta() / 8;
+
+    emit zoomChangedBy(numDegrees.y());
     event->ignore();
 }

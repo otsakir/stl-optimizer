@@ -92,6 +92,8 @@ public slots:
     void setXTranslation(int length);
     void setYTranslation(int length);
     void setZTranslation(int length);
+    void updateZoomLevel(int degreesDelta);
+
 
     void cleanup();
 
@@ -99,6 +101,7 @@ signals:
     void xRotationChanged(int angle);
     void yRotationChanged(int angle);
     void zRotationChanged(int angle);
+    void zoomChangedBy(int degreesDelta);
 
 protected:
     void initializeGL() override;
@@ -120,6 +123,7 @@ private:
     int xTrans = 0;
     int yTrans = 0;
     int zTrans = 0;
+    int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
 
     QPoint m_lastPos;
     ModelMesh meshModel;

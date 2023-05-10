@@ -14,6 +14,7 @@ AppWindow::AppWindow(QWidget *parent) :
     connect(ui->sliderX, &QSlider::valueChanged, glWidget, &GLWidget::setXRotation);
     connect(ui->sliderY, &QSlider::valueChanged, glWidget, &GLWidget::setYRotation);
     connect(ui->sliderZ, &QSlider::valueChanged, glWidget, &GLWidget::setZRotation);
+    connect(glWidget, &GLWidget::zoomChangedBy, glWidget, &GLWidget::updateZoomLevel);
 }
 
 AppWindow::~AppWindow()
