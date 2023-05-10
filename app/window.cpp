@@ -50,7 +50,6 @@
 
 #include "glwidget.h"
 #include "window.h"
-#include "mainwindow.h"
 #include <QSlider>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -102,7 +101,6 @@ Window::Window(MainWindow *mw)
     w->setLayout(container);
     mainLayout->addWidget(w);
     dockBtn = new QPushButton(tr("Undock"), this);
-    connect(dockBtn, &QPushButton::clicked, this, &Window::dockUndock);
     mainLayout->addWidget(dockBtn);
 
     setLayout(mainLayout);
@@ -111,7 +109,7 @@ Window::Window(MainWindow *mw)
     ySlider->setValue(0 * 16);
     zSlider->setValue(0 * 16);
 
-    setWindowTitle(tr("Hello GL"));
+    setWindowTitle(tr("STL Optimizer 0.0.1"));
 }
 
 QSlider *Window::createSlider()
@@ -144,28 +142,3 @@ void Window::keyPressEvent(QKeyEvent *e)
         QWidget::keyPressEvent(e);
 }
 
-void Window::dockUndock()
-{
-    if (parent()) {
-        setParent(nullptr);
-        setAttribute(Qt::WA_DeleteOnClose);
-        move(QApplication::desktop()->width() / 2 - width() / 2,
-             QApplication::desktop()->height() / 2 - height() / 2);
-        dockBtn->setText(tr("Dock"));
-        show();
-    } else {
-        if (!mainWindow->centralWidget()) {
-            if (mainWindow->isVisible()) {
-                setAttribute(Qt::WA_DeleteOnClose, false);
-                dockBtn->setText(tr("Undock"));
-                mainWindow->setCentralWidget(this);
-            } else {
-                QMessageBox::information(nullptr, tr("Cannot dock"),
-                                         tr("Main window already closed"));
-            }
-        } else {
-            QMessageBox::information(nullptr, tr("Cannot dock"),
-                                     tr("Main window already occupied"));
-        }
-    }
-}

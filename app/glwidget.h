@@ -106,8 +106,9 @@ protected:
     void resizeGL(int width, int height) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
-    void updateUiOverlayMesh();
+    bool updateUiOverlay();
 
 
 private:
@@ -119,9 +120,14 @@ private:
     int xTrans = 0;
     int yTrans = 0;
     int zTrans = 0;
+
     QPoint m_lastPos;
     ModelMesh meshModel;
-    BasegridMesh basegridMesh;
+    BasegridMesh basegridMesh = BasegridMesh(20, 15.0f);
+
+    //Core::VertexBufferDraft wireframeBuffer;
+    //Core::VertexBufferDraft triangleBuffer;
+
 
     //Core::Mesh meshUiOverlay;
 
@@ -130,6 +136,7 @@ private:
     RenderState renderState_uiOverlay;
 
     QOpenGLBuffer vboPoints;
+    QOpenGLBuffer vboNormals;
     QOpenGLBuffer vboFaceid;
 
     // visible rendering program
@@ -148,10 +155,11 @@ private:
 
 
     // transformations
-    QMatrix4x4 matProj;
-    QMatrix4x4 matCamera;
-    QMatrix4x4 matWorld;
-    QMatrix4x4 matMvpTransformation;
+    QMatrix4x4 pTrans;
+    //QMatrix4x4 matCamera;
+    //QMatrix4x4 matWorld;
+    //QMatrix4x4 matMvpTransformation;
+    //QMatrix3x3 matNormal; // used for lighting
     static bool m_transparent;
 };
 
