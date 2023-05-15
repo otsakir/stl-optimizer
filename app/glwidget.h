@@ -93,6 +93,7 @@ public slots:
     void setYTranslation(int length);
     void setZTranslation(int length);
     void updateZoomLevel(int degreesDelta);
+    void onMouseClicked(int x, int y);
 
 
     void cleanup();
@@ -102,12 +103,14 @@ signals:
     void yRotationChanged(int angle);
     void zRotationChanged(int angle);
     void zoomChangedBy(int degreesDelta);
+    void mouseClickedAt(int x, int y);
 
 protected:
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int width, int height) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 
@@ -125,7 +128,8 @@ private:
     int zTrans = 0;
     int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
 
-    QPoint m_lastPos;
+    QPoint mouseLastPos;
+    QPoint mousePressedPos;
     ModelMesh meshModel;
     BasegridMesh basegridMesh = BasegridMesh(20, 15.0f);
 

@@ -73,6 +73,8 @@ GLWidget::GLWidget(QWidget *parent)
         fmt.setAlphaBufferSize(8);
         setFormat(fmt);
     }
+
+    connect(this, &GLWidget::mouseClickedAt, this, &GLWidget::onMouseClicked);
 }
 
 GLWidget::~GLWidget()
@@ -152,6 +154,9 @@ void GLWidget::updateZoomLevel(int degreesDelta)
     qDebug() << "updateZoomLevel: " << degreesDelta << zoomLevel;
     update();
 }
+
+
+
 
 
 void GLWidget::cleanup()
@@ -438,14 +443,27 @@ void GLWidget::resizeGL(int w, int h)
 
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
-    m_lastPos = event->pos();
-    qInfo() << "mouse pressed at: " << m_lastPos;
+    mousePressedPos = event->pos();
+    mouseLastPos = event->pos();
+    qInfo() << "mouse pressed at: " << mouseLastPos;
+}
 
-    QRgb rgb = snapshotImage.pixel(m_lastPos);
+void GLWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->pos() == mousePressedPos)
+    {
+        qDebug() << "mouse clicked at " << mousePressedPos;
+        emit mouseClickedAt(mousePressedPos.x(), mousePressedPos.y());
+    }
+}
+
+void GLWidget::onMouseClicked(int x, int y)
+{
+    // check for face picking
+    QRgb rgb = snapshotImage.pixel(QPoint(x,y));
     int red = qRed(rgb);
     int green = qGreen(rgb);
     int blue = qBlue(rgb);
-
 
     QVector3D faceidVector(red,green,blue);
     unsigned int faceid = Core::unhideIntFromVector3D(faceidVector);
@@ -461,27 +479,23 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
     }
 
     qDebug() << "face at clicked position: " << red << green << blue << ". Faceid: " << faceid;
-
-    //snapshotImage.save("snapshot.png");
-    //makeCurrent();
-    //fbo->bind();
 }
 
 void GLWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    int dx = event->x() - m_lastPos.x();
-    int dy = event->y() - m_lastPos.y();
+    int dx = event->x() - mouseLastPos.x();
+    int dy = event->y() - mouseLastPos.y();
 
 
     if (event->buttons() & Qt::LeftButton) {
         setXRotation(m_xRot + 8 * dy);
+
         setYRotation(m_yRot + 8 * dx);
     } else if (event->buttons() & Qt::RightButton) {
         setXRotation(m_xRot + 8 * dy);
         setZRotation(m_zRot + 8 * dx);
     }
-    m_lastPos = event->pos();
-    qInfo() << "mouse moved";
+    mouseLastPos = event->pos();
 }
 
 void GLWidget::wheelEvent(QWheelEvent *event)
