@@ -75,6 +75,10 @@ GLWidget::GLWidget(QWidget *parent)
     }
 
     connect(this, &GLWidget::mouseClickedAt, this, &GLWidget::onMouseClicked);
+    connect(this, &GLWidget::ctrlStateChanged, this, &GLWidget::onCtrlStateChanged);
+
+    setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
 }
 
 GLWidget::~GLWidget()
@@ -481,10 +485,35 @@ void GLWidget::onMouseClicked(int x, int y)
     qDebug() << "face at clicked position: " << red << green << blue << ". Faceid: " << faceid;
 }
 
+void GLWidget::onCtrlStateChanged(bool down)
+{
+    if (down)
+        setCursor(Qt::IBeamCursor);
+    else
+        unsetCursor();
+}
+
 void GLWidget::mouseMoveEvent(QMouseEvent *event)
 {
     int dx = event->x() - mouseLastPos.x();
     int dy = event->y() - mouseLastPos.y();
+
+    Qt::KeyboardModifiers m = event->modifiers();
+    if (m && m.testFlag(Qt::KeyboardModifier::ControlModifier))
+    {
+        if (!ctrlDown)
+        {
+            ctrlDown = true;
+            emit ctrlStateChanged(true);
+        }
+    } else
+    {
+        if (ctrlDown)
+        {
+            ctrlDown = false;
+            emit ctrlStateChanged(false);
+        }
+    }
 
 
     if (event->buttons() & Qt::LeftButton) {
@@ -505,4 +534,28 @@ void GLWidget::wheelEvent(QWheelEvent *event)
 
     emit zoomChangedBy(numDegrees.y());
     event->ignore();
+}
+
+void GLWidget::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control)
+    {
+        if (!ctrlDown)
+        {
+            ctrlDown = true;
+            emit ctrlStateChanged(true);
+        }
+    }
+}
+
+void GLWidget::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control)
+    {
+        if (ctrlDown)
+        {
+            ctrlDown = false;
+            emit ctrlStateChanged(false);
+        }
+    }
 }

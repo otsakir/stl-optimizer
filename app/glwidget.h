@@ -94,6 +94,7 @@ public slots:
     void setZTranslation(int length);
     void updateZoomLevel(int degreesDelta);
     void onMouseClicked(int x, int y);
+    void onCtrlStateChanged(bool down);
 
 
     void cleanup();
@@ -104,6 +105,7 @@ signals:
     void zRotationChanged(int angle);
     void zoomChangedBy(int degreesDelta);
     void mouseClickedAt(int x, int y);
+    void ctrlStateChanged(bool down);
 
 protected:
     void initializeGL() override;
@@ -113,6 +115,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
 
     bool updateUiOverlay();
 
@@ -127,6 +131,7 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
+    bool ctrlDown = false;
 
     QPoint mouseLastPos;
     QPoint mousePressedPos;
