@@ -19,6 +19,7 @@ private slots:
     void test_ranged_deltas();
     void test_indirect_default();
     void test_indirect_deltas();
+    void test_case1();
 
 };
 
@@ -99,6 +100,11 @@ void TestIndexer::test_indirect_deltas()
     }
     delete indexer;
     QCOMPARE(results, QVector({1,1,2,2,3,3,4,4,5,5}));
+}
+
+void TestIndexer::test_case1()
+{
+    qDebug() << "Asdfasdf" << sizeof(QMatrix4x4);
 }
 
 QTEST_APPLESS_MAIN(TestIndexer)

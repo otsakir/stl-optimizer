@@ -245,7 +245,7 @@ void GLWidget::initializeGL()
     meshModel.swallow();
 
     initializeOpenGLFunctions();
-    glClearColor(0.5, 0.5, 0.5, 1.0);
+    glClearColor(0.2, 0.2, 0.2, 1.0);
 
     // buffer with model vertices
     vboPoints.create();
@@ -290,7 +290,7 @@ void GLWidget::initializeGL()
         "void main() {\n"
         "   highp vec3 lightDir = vec3(0.0, 0.0, -1.0);\n"
         "   highp float intensity =  dot(-lightDir, vertNormal);\n"
-        "   gl_FragColor = vec4(1.0, 0, 0, 1)*intensity;\n"
+        "   gl_FragColor = vec4(0.5, 0.5, 0.5, 1)*intensity;\n"
         "}\n");
     renderState_model.addAttribute("vertex",vboPoints);
     renderState_model.addAttribute("normal",vboNormals);
@@ -329,8 +329,9 @@ void GLWidget::initializeGL()
         "}\n"
     );
     renderState_uiOverlay.setFShader(
+        "uniform vec4 color;\n"
         "void main(){\n"
-        "   gl_FragColor = vec4(0, 1.0, 0, 1.0);\n"
+        "   gl_FragColor = color;\n"
         "}\n"
     );
     renderState_uiOverlay.addAttribute("vertex",uiOverlayVbo);
@@ -348,6 +349,10 @@ void GLWidget::paintGL()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glLineWidth(1);
+
 
     // view transformation (camera)
     QMatrix4x4 vTrans;
@@ -416,6 +421,8 @@ void GLWidget::paintGL()
     renderState_uiOverlay.program->bind();
     loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
     renderState_uiOverlay.program->setUniformValue(loc, pvwTrans * basegridMesh.modelTrans);
+    QColor gridColor(Qt::white); gridColor.setAlpha(40);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), gridColor);
 
     Core::VertexBufferDraft::RegisteredInfo* meshinfo = meshContext.wireframeBuffer.getMeshInfo(&basegridMesh);
     if (meshinfo)
@@ -423,8 +430,11 @@ void GLWidget::paintGL()
         glDrawArrays(GL_LINES, meshinfo->offset/3, meshinfo->size/3);
     }
 
+    glLineWidth(3);
     glClear(GL_DEPTH_BUFFER_BIT);
-    renderState_uiOverlay.program->setUniformValue(loc, pvwTrans);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvwTrans);
+    QColor selectionColor(Qt::green); selectionColor.setAlpha(200);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), selectionColor);
     meshinfo = meshContext.wireframeBuffer.getMeshInfo(&meshModel);
     if (meshinfo)
     {
