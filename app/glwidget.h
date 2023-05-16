@@ -79,9 +79,6 @@ public:
     GLWidget(QWidget *parent = nullptr);
     ~GLWidget();
 
-    static bool isTransparent() { return m_transparent; }
-    static void setTransparent(bool t) { m_transparent = t; }
-
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
 
@@ -93,6 +90,8 @@ public slots:
     void setYTranslation(int length);
     void setZTranslation(int length);
     void updateZoomLevel(int degreesDelta);
+    void onMouseClicked(int x, int y);
+    void onCtrlStateChanged(bool down);
 
 
     void cleanup();
@@ -102,14 +101,19 @@ signals:
     void yRotationChanged(int angle);
     void zRotationChanged(int angle);
     void zoomChangedBy(int degreesDelta);
+    void mouseClickedAt(int x, int y);
+    void ctrlStateChanged(bool down);
 
 protected:
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int width, int height) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
 
     bool updateUiOverlay();
 
@@ -124,8 +128,10 @@ private:
     int yTrans = 0;
     int zTrans = 0;
     int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
+    bool ctrlDown = false;
 
-    QPoint m_lastPos;
+    QPoint mouseLastPos;
+    QPoint mousePressedPos;
     ModelMesh meshModel;
     BasegridMesh basegridMesh = BasegridMesh(20, 15.0f);
 
@@ -149,22 +155,16 @@ private:
     // idProjection program
     QImage snapshotImage;
     int selectedFace = -1; // id of the clicked face. -1 if none is selected
+    QVector<Core::FaceIndex> selectedFaces;
 
     // ui overlay rendering
     QOpenGLShaderProgram* uiOverlayProgram = nullptr;
     QOpenGLVertexArrayObject uiOverlay_vao;
     QOpenGLBuffer uiOverlayVbo;
 
-    // basedgrid rendering
-
-
     // transformations
     QMatrix4x4 pTrans;
-    //QMatrix4x4 matCamera;
-    //QMatrix4x4 matWorld;
-    //QMatrix4x4 matMvpTransformation;
-    //QMatrix3x3 matNormal; // used for lighting
-    static bool m_transparent;
+
 };
 
 

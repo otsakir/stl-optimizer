@@ -15,6 +15,9 @@ public:
     explicit AppWindow(QWidget *parent = nullptr);
     ~AppWindow();
 
+public slots:
+    void setXSlider(int value);
+
 private:
     Ui::AppWindow *ui;
 };

@@ -60,19 +60,23 @@
 using Core::Mesh;
 
 
-bool GLWidget::m_transparent = false;
-
 GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
 {
     m_core = QSurfaceFormat::defaultFormat().profile() == QSurfaceFormat::CoreProfile;
     // --transparent causes the clear color to be transparent. Therefore, on systems that
     // support it, the widget will become transparent apart from the logo.
-    if (m_transparent) {
+    /*if (m_transparent) {
         QSurfaceFormat fmt = format();
         fmt.setAlphaBufferSize(8);
         setFormat(fmt);
-    }
+    }*/
+
+    connect(this, &GLWidget::mouseClickedAt, this, &GLWidget::onMouseClicked);
+    connect(this, &GLWidget::ctrlStateChanged, this, &GLWidget::onCtrlStateChanged);
+
+    setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
 }
 
 GLWidget::~GLWidget()
@@ -154,6 +158,9 @@ void GLWidget::updateZoomLevel(int degreesDelta)
 }
 
 
+
+
+
 void GLWidget::cleanup()
 {
     if (! cleanedUp)
@@ -190,6 +197,15 @@ bool GLWidget::updateUiOverlay()
 {
     MeshContext& meshContext = App::getMeshContext();
 
+    if (!selectedFaces.empty())
+    {
+        //qDebug() << "selected faces: " << selectedFaces.size();
+        meshModel.uioverlayFaces.clear();
+        meshModel.uioverlayFaces.append(selectedFaces);
+
+        return true;
+    }
+    /*
     if (selectedFace != -1)
     {
         meshModel.uioverlayFaces.clear();
@@ -210,6 +226,7 @@ bool GLWidget::updateUiOverlay()
 //        uiOverlayVbo.release();
 
     }
+    */
     return false;
 
 }
@@ -228,7 +245,7 @@ void GLWidget::initializeGL()
     meshModel.swallow();
 
     initializeOpenGLFunctions();
-    glClearColor(0, 0, 0, m_transparent ? 0 : 1);
+    glClearColor(0.5, 0.5, 0.5, 1.0);
 
     // buffer with model vertices
     vboPoints.create();
@@ -438,14 +455,27 @@ void GLWidget::resizeGL(int w, int h)
 
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
-    m_lastPos = event->pos();
-    qInfo() << "mouse pressed at: " << m_lastPos;
+    mousePressedPos = event->pos();
+    mouseLastPos = event->pos();
+    qInfo() << "mouse pressed at: " << mouseLastPos;
+}
 
-    QRgb rgb = snapshotImage.pixel(m_lastPos);
+void GLWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->pos() == mousePressedPos)
+    {
+        qDebug() << "mouse clicked at " << mousePressedPos;
+        emit mouseClickedAt(mousePressedPos.x(), mousePressedPos.y());
+    }
+}
+
+void GLWidget::onMouseClicked(int x, int y)
+{
+    // check for face picking
+    QRgb rgb = snapshotImage.pixel(QPoint(x,y));
     int red = qRed(rgb);
     int green = qGreen(rgb);
     int blue = qBlue(rgb);
-
 
     QVector3D faceidVector(red,green,blue);
     unsigned int faceid = Core::unhideIntFromVector3D(faceidVector);
@@ -453,35 +483,69 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
     if (faceid == 0)
     {
         this->selectedFace = -1; // nothing selected
+        this->selectedFaces.clear();
+        updateUiOverlay();
     } else
     {
         this->selectedFace = faceid;
+        if (ctrlDown)
+        {
+            if (!selectedFaces.contains(faceid))
+                selectedFaces.append(faceid);
+            else
+                selectedFaces.removeOne(faceid);
+        } else
+        {
+            selectedFaces.clear();
+            selectedFaces.append(selectedFace);
+        }
         updateUiOverlay();
         update();
     }
 
     qDebug() << "face at clicked position: " << red << green << blue << ". Faceid: " << faceid;
+}
 
-    //snapshotImage.save("snapshot.png");
-    //makeCurrent();
-    //fbo->bind();
+void GLWidget::onCtrlStateChanged(bool down)
+{
+    if (down)
+        setCursor(Qt::IBeamCursor);
+    else
+        unsetCursor();
 }
 
 void GLWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    int dx = event->x() - m_lastPos.x();
-    int dy = event->y() - m_lastPos.y();
+    int dx = event->x() - mouseLastPos.x();
+    int dy = event->y() - mouseLastPos.y();
+
+    Qt::KeyboardModifiers m = event->modifiers();
+    if (m && m.testFlag(Qt::KeyboardModifier::ControlModifier))
+    {
+        if (!ctrlDown)
+        {
+            ctrlDown = true;
+            emit ctrlStateChanged(true);
+        }
+    } else
+    {
+        if (ctrlDown)
+        {
+            ctrlDown = false;
+            emit ctrlStateChanged(false);
+        }
+    }
 
 
     if (event->buttons() & Qt::LeftButton) {
         setXRotation(m_xRot + 8 * dy);
+
         setYRotation(m_yRot + 8 * dx);
     } else if (event->buttons() & Qt::RightButton) {
         setXRotation(m_xRot + 8 * dy);
         setZRotation(m_zRot + 8 * dx);
     }
-    m_lastPos = event->pos();
-    qInfo() << "mouse moved";
+    mouseLastPos = event->pos();
 }
 
 void GLWidget::wheelEvent(QWheelEvent *event)
@@ -491,4 +555,28 @@ void GLWidget::wheelEvent(QWheelEvent *event)
 
     emit zoomChangedBy(numDegrees.y());
     event->ignore();
+}
+
+void GLWidget::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control)
+    {
+        if (!ctrlDown)
+        {
+            ctrlDown = true;
+            emit ctrlStateChanged(true);
+        }
+    }
+}
+
+void GLWidget::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control)
+    {
+        if (ctrlDown)
+        {
+            ctrlDown = false;
+            emit ctrlStateChanged(false);
+        }
+    }
 }
