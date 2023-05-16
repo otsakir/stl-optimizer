@@ -79,9 +79,6 @@ public:
     GLWidget(QWidget *parent = nullptr);
     ~GLWidget();
 
-    static bool isTransparent() { return m_transparent; }
-    static void setTransparent(bool t) { m_transparent = t; }
-
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
 
@@ -158,22 +155,16 @@ private:
     // idProjection program
     QImage snapshotImage;
     int selectedFace = -1; // id of the clicked face. -1 if none is selected
+    QVector<Core::FaceIndex> selectedFaces;
 
     // ui overlay rendering
     QOpenGLShaderProgram* uiOverlayProgram = nullptr;
     QOpenGLVertexArrayObject uiOverlay_vao;
     QOpenGLBuffer uiOverlayVbo;
 
-    // basedgrid rendering
-
-
     // transformations
     QMatrix4x4 pTrans;
-    //QMatrix4x4 matCamera;
-    //QMatrix4x4 matWorld;
-    //QMatrix4x4 matMvpTransformation;
-    //QMatrix3x3 matNormal; // used for lighting
-    static bool m_transparent;
+
 };
 
 

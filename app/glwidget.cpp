@@ -60,19 +60,17 @@
 using Core::Mesh;
 
 
-bool GLWidget::m_transparent = false;
-
 GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
 {
     m_core = QSurfaceFormat::defaultFormat().profile() == QSurfaceFormat::CoreProfile;
     // --transparent causes the clear color to be transparent. Therefore, on systems that
     // support it, the widget will become transparent apart from the logo.
-    if (m_transparent) {
+    /*if (m_transparent) {
         QSurfaceFormat fmt = format();
         fmt.setAlphaBufferSize(8);
         setFormat(fmt);
-    }
+    }*/
 
     connect(this, &GLWidget::mouseClickedAt, this, &GLWidget::onMouseClicked);
     connect(this, &GLWidget::ctrlStateChanged, this, &GLWidget::onCtrlStateChanged);
@@ -199,6 +197,15 @@ bool GLWidget::updateUiOverlay()
 {
     MeshContext& meshContext = App::getMeshContext();
 
+    if (!selectedFaces.empty())
+    {
+        //qDebug() << "selected faces: " << selectedFaces.size();
+        meshModel.uioverlayFaces.clear();
+        meshModel.uioverlayFaces.append(selectedFaces);
+
+        return true;
+    }
+    /*
     if (selectedFace != -1)
     {
         meshModel.uioverlayFaces.clear();
@@ -219,6 +226,7 @@ bool GLWidget::updateUiOverlay()
 //        uiOverlayVbo.release();
 
     }
+    */
     return false;
 
 }
@@ -237,7 +245,7 @@ void GLWidget::initializeGL()
     meshModel.swallow();
 
     initializeOpenGLFunctions();
-    glClearColor(0, 0, 0, m_transparent ? 0 : 1);
+    glClearColor(0.5, 0.5, 0.5, 1.0);
 
     // buffer with model vertices
     vboPoints.create();
@@ -475,9 +483,22 @@ void GLWidget::onMouseClicked(int x, int y)
     if (faceid == 0)
     {
         this->selectedFace = -1; // nothing selected
+        this->selectedFaces.clear();
+        updateUiOverlay();
     } else
     {
         this->selectedFace = faceid;
+        if (ctrlDown)
+        {
+            if (!selectedFaces.contains(faceid))
+                selectedFaces.append(faceid);
+            else
+                selectedFaces.removeOne(faceid);
+        } else
+        {
+            selectedFaces.clear();
+            selectedFaces.append(selectedFace);
+        }
         updateUiOverlay();
         update();
     }
