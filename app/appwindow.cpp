@@ -1,6 +1,10 @@
 #include "appwindow.h"
 #include "ui_appwindow.h"
+#include "dockwidget.h"
 #include "glwidget.h"
+
+#include <QDockWidget>
+#include <QListWidget>
 
 AppWindow::AppWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -17,10 +21,15 @@ AppWindow::AppWindow(QWidget *parent) :
     connect(glWidget, &GLWidget::zoomChangedBy, glWidget, &GLWidget::updateZoomLevel);
     connect(glWidget, &GLWidget::xRotationChanged, this, &AppWindow::setXSlider);
     //connect(glWidget, &GLWidget::cl)
+
+    DockWidget *dock = new DockWidget(this);
+    addDockWidget(Qt::LeftDockWidgetArea, dock);
+    dock->setAllowedAreas(Qt::LeftDockWidgetArea);
 }
 
 AppWindow::~AppWindow()
 {
+
     delete ui;
 }
 

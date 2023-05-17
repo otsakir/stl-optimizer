@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>custom-icons/open-app-library.png</file>
+        <file>custom-icons/folder.svg</file>
+        <file>custom-icons/pointer-selection.svg</file>
+    </qresource>
+</RCC>
