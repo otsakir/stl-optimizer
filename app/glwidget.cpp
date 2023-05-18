@@ -64,13 +64,6 @@ GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
 {
     m_core = QSurfaceFormat::defaultFormat().profile() == QSurfaceFormat::CoreProfile;
-    // --transparent causes the clear color to be transparent. Therefore, on systems that
-    // support it, the widget will become transparent apart from the logo.
-    /*if (m_transparent) {
-        QSurfaceFormat fmt = format();
-        fmt.setAlphaBufferSize(8);
-        setFormat(fmt);
-    }*/
 
     connect(this, &GLWidget::mouseClickedAt, this, &GLWidget::onMouseClicked);
     connect(this, &GLWidget::ctrlStateChanged, this, &GLWidget::onCtrlStateChanged);
@@ -157,10 +150,6 @@ void GLWidget::updateZoomLevel(int degreesDelta)
     update();
 }
 
-
-
-
-
 void GLWidget::cleanup()
 {
     if (! cleanedUp)
@@ -204,6 +193,9 @@ bool GLWidget::updateUiOverlay()
         meshModel.uioverlayFaces.append(selectedFaces);
 
         return true;
+    } else
+    {
+        meshModel.uioverlayFaces.clear();
     }
     /*
     if (selectedFace != -1)
@@ -245,7 +237,7 @@ void GLWidget::initializeGL()
     meshModel.swallow();
 
     initializeOpenGLFunctions();
-    glClearColor(0.2, 0.2, 0.2, 1.0);
+
 
     // buffer with model vertices
     vboPoints.create();
@@ -349,7 +341,6 @@ void GLWidget::paintGL()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glLineWidth(1);
 
@@ -381,6 +372,8 @@ void GLWidget::paintGL()
     renderState_idProjection.program->bind();
     renderState_idProjection.program->setUniformValue(0, pvwTrans);
     fbo->bind();
+    glDisable(GL_BLEND);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, meshModel.idprojectionData.size()/3);
     snapshotImage = fbo->toImage();
@@ -388,6 +381,8 @@ void GLWidget::paintGL()
     renderState_idProjection.vao.release();
 
     // Render model
+    glEnable(GL_BLEND);
+    glClearColor(0.2, 0.2, 0.2, 1.0);
     renderState_model.vao.bind();
     renderState_model.program->bind();
     int loc = renderState_model.program->uniformLocation("mvpMatrix");
@@ -411,11 +406,6 @@ void GLWidget::paintGL()
     uiOverlayVbo.allocate(wireframeData->constData(), wireframeData->size()* sizeof(GLfloat));
     uiOverlayVbo.release();
 
-    //QMatrix4x4 vpTrans =
-    // projection trans - camera trans (place camera and place inverse trans) - worldPlacing (rotate and move the world in front of camera) - basegridMesh.world (place properly in the world)
-    //QMatrix4x4 wvpTrans = basegridMesh.world * ;
-
-    //glClear(GL_DEPTH_BUFFER_BIT);
     // render basegrid overlay
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
@@ -445,8 +435,6 @@ void GLWidget::paintGL()
     renderState_uiOverlay.vao.release();
 
     meshContext.wireframeBuffer.clear();
-    //triangleBuffer.clear();
-
 }
 
 void GLWidget::resizeGL(int w, int h)
@@ -546,15 +534,22 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
         }
     }
 
-
-    if (event->buttons() & Qt::LeftButton) {
-        setXRotation(m_xRot + 8 * dy);
-
-        setYRotation(m_yRot + 8 * dx);
-    } else if (event->buttons() & Qt::RightButton) {
-        setXRotation(m_xRot + 8 * dy);
-        setZRotation(m_zRot + 8 * dx);
+    if (m && m.testFlag(Qt::ShiftModifier))
+    {
+        qDebug() << "x-moved while pressing shift: " << dx;
     }
+
+    //if (!m)
+    //{
+        if (event->buttons() & Qt::LeftButton) {
+            setXRotation(m_xRot + 8 * dy);
+
+            setYRotation(m_yRot + 8 * dx);
+        } else if (event->buttons() & Qt::RightButton) {
+            setXRotation(m_xRot + 8 * dy);
+            setZRotation(m_zRot + 8 * dx);
+        }
+    //}
     mouseLastPos = event->pos();
 }
 
