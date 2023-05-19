@@ -1,6 +1,7 @@
 
 #include "app.h"
 #include "loader.h"
+#include "limits.h"
 
 
 static MeshContext meshContext;
@@ -15,29 +16,57 @@ namespace App
 
 void ModelMesh::swallow()
 {
-    VertexIterator vi(*this, meshContext.triangleBuffer, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT, &VertexIterator::pumpByFace);
+    VertexIterator vi(*this, meshContext.triangleBuffer, VertexIterator::ITERATE_TRIANGLES, VertexIterator::ACTION_PUSH_POINT);
     vi.pumpAll();
 
-    VertexIterator vi2(*this, meshContext.normalBuffer, VertexIterator::ITERATE_PER_TRIANGLE, VertexIterator::ACTION_PUSH_NORMAL, &VertexIterator::pumpByFaceOnly);
+    VertexIterator vi2(*this, meshContext.normalBuffer, VertexIterator::ITERATE_PER_TRIANGLE, VertexIterator::ACTION_PUSH_NORMAL);
     vi2.pumpAll();
 
     idprojectionData.clear();
-    VertexIterator vi3(*this, idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID, &VertexIterator::pumpByFace);
+    VertexIterator vi3(*this, &idprojectionData, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_PUSH_FACEID);
     vi3.pumpAll();
 }
 
 
 void ModelMesh::swallowUioverlay(Core::VertexBufferDraft& targetDraft)
 {
-    VertexIterator vi(*this, &uioverlayFaces, targetDraft, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT, &VertexIterator::pumpByFace);
+    VertexIterator vi(*this, &uioverlayFaces, targetDraft, Core::VertexIterator::ITERATE_TRIANGLES_TO_LINES, Core::VertexIterator::ACTION_PUSH_POINT);
     vi.pumpAll();
 }
 
+
 ModelMesh::ModelMesh()
+    : minPoint(QVector3D(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max())),
+      maxPoint(QVector3D(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min()))
 {
     // load primary source data
     Utils::Loader loader;
     loader.loadStl("sphere.stl", *this);
+
+    QVector3D& minPoint = this->minPoint;
+    QVector3D& maxPoint = this->maxPoint;
+
+    VertexIterator vi(*this, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_CALLBACK_POINT, [&minPoint, &maxPoint](const QVector3D& point){
+        // find min
+        if (point.x() < minPoint.x())
+            minPoint.setX(point.x());
+        if (point.y() < minPoint.y())
+            minPoint.setY(point.y());
+        if (point.z() < minPoint.z())
+            minPoint.setZ(point.z());
+        // find max
+        if (point.x() > maxPoint.x())
+            maxPoint.setX(point.x());
+        if (point.y() > minPoint.y())
+            maxPoint.setY(point.y());
+        if (point.z() > minPoint.z())
+            maxPoint.setZ(point.z());
+
+    });
+    vi.pumpAll();
+    qDebug() << "min point: " << minPoint;
+    qDebug() << "max point: " << maxPoint;
+
 }
 
 BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount), side(side)
@@ -65,13 +94,13 @@ BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount
 // appends processed vertices to the end of the draft
 void BasegridMesh::swallow(Core::VertexBufferDraft& targetDraft)
 {
-        VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT, &Core::VertexIterator::pumpByPoint);
+        VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
         vi.pumpAll();
 }
 
 void OverlayMesh::swallow(Core::VertexBufferDraft& targetDraft)
 {
-    VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT, &Core::VertexIterator::pumpByPoint);
+    VertexIterator vi(*this, targetDraft, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
     vi.pumpAll();
 }
 

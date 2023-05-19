@@ -19,6 +19,8 @@ class ModelMesh : public Core::Mesh
 public:
     QVector<float> idprojectionData; // face ids to project
     QVector<Core::FaceIndex> uioverlayFaces;
+    QVector3D minPoint;
+    QVector3D maxPoint;
 
 
     void swallow();

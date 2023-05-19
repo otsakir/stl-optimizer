@@ -62,13 +62,20 @@ void VertexIterator::init()
     }
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type, ActionType actionType, Pump_cb pumpCallback)
+VertexIterator::VertexIterator(const SourceArrays& sourceArrays, Type type, ActionType actionType, PointCallback pointCallback)
+    : VertexIterator(sourceArrays, 0, type, actionType)
+{
+    this->pointCallback = pointCallback;
+}
+
+
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>* target, Type type, ActionType actionType)
     : sourceArrays(sa),
       targetArray(target),
       faceIndex(0),
       infaceIndex(0),
+      pointIndex(0),
       type(type),
-      pumpFunction(pumpCallback),
       bufferDraft(0)
 {
     setAction(actionType);
@@ -76,12 +83,19 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, T
     {
         case ITERATE_TRIANGLES:
             faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,1});
+            pumpFunction = &VertexIterator::pumpByFace;
         break;
         case ITERATE_TRIANGLES_TO_LINES:
             faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{0,0,0,0,0,1});
+            pumpFunction = &VertexIterator::pumpByFace;
         break;
         case ITERATE_PER_TRIANGLE:
             faceIndexer = new IndexerRanged<FaceIndex>(0, sa.faces.size(),{1});
+            pumpFunction = &VertexIterator::pumpByFaceOnly;
+        break;
+        case ITERATE_POINTS:
+            faceIndexer = 0;
+            pumpFunction = &VertexIterator::pumpByPoint;
         break;
     }
 
@@ -89,22 +103,22 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>& target, T
 
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type, ActionType actionType, Pump_cb pumpCallback)
-    : VertexIterator(sa, *(bufferDraft.registerForFrame(&sa)), type, actionType, pumpCallback)
+VertexIterator::VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
+    : VertexIterator(sa, (bufferDraft.registerForFrame(&sa)), type, actionType)
 {
     this->bufferDraft = &bufferDraft;
 }
 
 
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType, Pump_cb pumpCallback)
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType)
     : sourceArrays(sa),
-      targetArray(target),
+      targetArray(&target),
       faceIndex(0),
       infaceIndex(0),
+      pointIndex(0),
       faceIds(faceIds),
       type(type),
-      pumpFunction(pumpCallback),
       bufferDraft(0)
 {
     setAction(actionType);
@@ -113,9 +127,11 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceI
     {
         case ITERATE_TRIANGLES:
             faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,1});
+            pumpFunction = &VertexIterator::pumpByFace;
         break;
         case ITERATE_TRIANGLES_TO_LINES:
             faceIndexer = new IndexerIndirect<FaceIndex>(*faceIds,{0,0,0,0,0,1});
+            pumpFunction = &VertexIterator::pumpByFace;
         break;
         case ITERATE_PER_TRIANGLE:
             assert(false); // throw error for now. Have a better look at spoint point - TODO
@@ -125,8 +141,8 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceI
     init();
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type, ActionType actionType, Pump_cb pumpCallback)
-    : VertexIterator(sa, faceIds, *(bufferDraft.registerForFrame(&sa)), type, actionType, pumpCallback)
+VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
+    : VertexIterator(sa, faceIds, *(bufferDraft.registerForFrame(&sa)), type, actionType)
 {
     this->bufferDraft = &bufferDraft;
 }
@@ -137,31 +153,34 @@ VertexIterator::~VertexIterator()
     faceIndexer = nullptr;
 }
 
-
+// pushes point indexed by faces[faceIndex]/points[infaceIndex]
 void VertexIterator::action_pushFacePoint()
 {
     const QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
-    targetArray.append(v.x());
-    targetArray.append(v.y());
-    targetArray.append(v.z());
+    targetArray->append(v.x());
+    targetArray->append(v.y());
+    targetArray->append(v.z());
 }
 
+// pushes faceIndex after encoding
 void VertexIterator::action_pushFaceId()
 {
     QVector3D faceidAsVector = hideIntInVector3D(faceIndex);
-    targetArray.append(faceidAsVector.x());
-    targetArray.append(faceidAsVector.y());
-    targetArray.append(faceidAsVector.z());
+    targetArray->append(faceidAsVector.x());
+    targetArray->append(faceidAsVector.y());
+    targetArray->append(faceidAsVector.z());
 }
 
-void VertexIterator::action_pushPoint(PointIndex pointIndex)
+// pushes poinnt index by points[pointIndex]
+void VertexIterator::action_pushPoint()
 {
     const QVector3D& v = sourceArrays.points[ pointIndex ];
-    targetArray.append(v.x());
-    targetArray.append(v.y());
-    targetArray.append(v.z());
+    targetArray->append(v.x());
+    targetArray->append(v.y());
+    targetArray->append(v.z());
 }
 
+// calculates single normal vector for face indexed by faces[faceIndex] and triple-pushes it.
 void VertexIterator::action_pushNormal()
 {
     const QVector3D& p1 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[0] ];
@@ -174,10 +193,17 @@ void VertexIterator::action_pushNormal()
     QVector3D n = QVector3D::normal(v1,v2);
     for (int i=0; i<3; i++) // same normal for all points of a face
     {
-        targetArray.append(n.x());
-        targetArray.append(n.y());
-        targetArray.append(n.z());
+        targetArray->append(n.x());
+        targetArray->append(n.y());
+        targetArray->append(n.z());
     }
+}
+
+// invokes callback passing it point indexed by faces[faceIndex]/points[infaceIndex]
+void VertexIterator::action_callbackFacePoint()
+{
+    const QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
+    pointCallback(v);
 }
 
 /// Iterate on faces and points within them.
@@ -189,7 +215,6 @@ bool VertexIterator::pumpByFace()
     faceIndex = faceIndexer->get();
     infaceIndex = pointIndexer->get();
 
-    //((*this).*(action))();
     (this->*actionFunction)();
 
     faceIndexer->next();
@@ -205,7 +230,7 @@ bool VertexIterator::pumpByFaceOnly() // i.e. do not touch point indexer
         return false;
 
     faceIndex = faceIndexer->get();
-    ((*this).*(actionFunction))();
+    (this->*actionFunction)();
     faceIndexer->next();
 
     return true;
@@ -217,7 +242,8 @@ bool VertexIterator::pumpByPoint()
     if (!pointIndexer->available())
         return false;
 
-    action_pushPoint( pointIndexer->get());
+    pointIndex = pointIndexer->get();
+    (this->*actionFunction)();
 
     return pointIndexer->next();
 }
@@ -247,13 +273,19 @@ void VertexIterator::setAction(ActionType t)
     switch (t)
     {
         case ACTION_PUSH_POINT:
-            actionFunction = &VertexIterator::action_pushFacePoint;
+            if (type == ITERATE_POINTS)
+                actionFunction = &VertexIterator::action_pushPoint;
+            else
+                actionFunction = &VertexIterator::action_pushFacePoint;
         break;
         case ACTION_PUSH_FACEID:
             actionFunction = &VertexIterator::action_pushFaceId;
         break;
         case ACTION_PUSH_NORMAL:
             actionFunction = &VertexIterator::action_pushNormal;
+        break;
+        case ACTION_CALLBACK_POINT:
+            actionFunction = &VertexIterator::action_callbackFacePoint;
         break;
     }
     actionType = t;
@@ -347,7 +379,7 @@ void Mesh::swallow(Core::VertexBufferDraft& targetDraft)
     QVector<float>* target = targetDraft.registerForFrame(this);
     if (target != nullptr)
     {
-        VertexIterator vi(*this, *target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
+        VertexIterator vi(*this, target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
         while (vi.pumpByPoint()) {};
     }
 }
