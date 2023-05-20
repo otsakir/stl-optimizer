@@ -41,7 +41,7 @@ ModelMesh::ModelMesh()
 {
     // load primary source data
     Utils::Loader loader;
-    loader.loadStl("sphere.stl", *this);
+    loader.loadStl("/home/nando/tmp/cone.stl", *this);
 
     QVector3D& minPoint = this->minPoint;
     QVector3D& maxPoint = this->maxPoint;
@@ -66,6 +66,8 @@ ModelMesh::ModelMesh()
     vi.pumpAll();
     qDebug() << "min point: " << minPoint;
     qDebug() << "max point: " << maxPoint;
+
+    modelTrans.rotate(-90, 1, 0, 0);
 
 }
 

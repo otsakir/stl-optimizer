@@ -414,6 +414,51 @@ public:
     friend void VertexIterator::pumpAll();
 };
 
+class Camera
+{
+private:
+    QMatrix4x4 trans; // holds initial positioning
+    float zoom;
+    float zPos;
+    float xRot, yRot, zRot;
+public:
+    Camera()
+        : xRot(0), yRot(0), zRot(0), zPos(0), zoom(0)
+    {}
+
+    Camera(float xRot, float yRot, float zRot, float zPos)
+        : xRot(xRot), yRot(yRot), zRot(zRot), zPos(zPos), zoom(0)
+    {}
+
+    // view transformation (inverted camera position) ready to use
+    QMatrix4x4 getTrans()
+    {
+        QMatrix4x4 viewTrans = trans;
+        viewTrans.rotate(xRot, 1, 0, 0);
+        viewTrans.rotate(yRot, 0, 1, 0);
+        viewTrans.rotate(zRot, 0, 0, 1);
+        viewTrans.translate(0,0,zPos + zoom);
+        return viewTrans.inverted();
+    }
+
+    void setTrans(QMatrix4x4& trans)
+    {
+        this->trans = trans;
+    }
+
+    void setZoom(float zoom)
+    {
+        this->zoom = zoom;
+    }
+
+    void setRot(float x, float y, float z)
+    {
+        xRot = x;
+        yRot = y;
+        zRot = z;
+    }
+};
+
 } // namespace Core
 
 #endif // CORE_MESH_H

@@ -130,6 +130,8 @@ private:
     int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
     bool ctrlDown = false;
 
+    Core::Camera camera;
+
     QPoint mouseLastPos;
     QPoint mousePressedPos;
     ModelMesh meshModel;

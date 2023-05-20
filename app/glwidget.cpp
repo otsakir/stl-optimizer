@@ -330,6 +330,7 @@ void GLWidget::initializeGL()
     renderState_uiOverlay.setupProgram();
     renderState_uiOverlay.setupVao();
 
+    camera = Core::Camera(0, 0, 0, 15);
 
 }
 
@@ -344,23 +345,13 @@ void GLWidget::paintGL()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glLineWidth(1);
 
-
     // view transformation (camera)
     QMatrix4x4 vTrans;
-    // vTrans.setToIdentity(); // implied
-    vTrans.translate(0,0,10.0f + (float)zoomLevel * Config::wheelDegreesToZUnits);
-    vTrans = vTrans.inverted();
-
-    // world transformation (transform the world as whole)
-    QMatrix4x4 wTrans;
-    // wTrans.setToIndentity();
-    wTrans.translate(0,0,-5.0);
-    wTrans.rotate(m_xRot / 16.0f, 1, 0, 0);
-    wTrans.rotate(m_yRot / 16.0f, 0, 1, 0);
-    wTrans.rotate(m_zRot / 16.0f, 0, 0, 1);
+    camera.setZoom((float)zoomLevel * Config::wheelDegreesToZUnits);
+    camera.setRot(-m_xRot/16.0f, -m_yRot/16.0f, -m_zRot/16.0f);
 
     // camera & world
-    QMatrix4x4 vwTrans = vTrans * wTrans;
+    QMatrix4x4 vwTrans = camera.getTrans();
     QMatrix4x4 pvwTrans = pTrans * vwTrans; // used all over the place
 
 
@@ -370,7 +361,7 @@ void GLWidget::paintGL()
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, pvwTrans);
+    renderState_idProjection.program->setUniformValue(0, pvwTrans * meshModel.modelTrans);
     fbo->bind();
     glDisable(GL_BLEND);
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -386,7 +377,7 @@ void GLWidget::paintGL()
     renderState_model.vao.bind();
     renderState_model.program->bind();
     int loc = renderState_model.program->uniformLocation("mvpMatrix");
-    renderState_model.program->setUniformValue(loc, pvwTrans);
+    renderState_model.program->setUniformValue(loc, pvwTrans * meshModel.modelTrans);
     loc = renderState_model.program->uniformLocation("normalMatrix");
     renderState_model.program->setUniformValue(loc, normalTrans3);
     glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
@@ -422,7 +413,7 @@ void GLWidget::paintGL()
 
     glLineWidth(3);
     glClear(GL_DEPTH_BUFFER_BIT);
-    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvwTrans);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvwTrans * meshModel.modelTrans);
     QColor selectionColor(Qt::green); selectionColor.setAlpha(200);
     renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), selectionColor);
     meshinfo = meshContext.wireframeBuffer.getMeshInfo(&meshModel);
