@@ -21,6 +21,11 @@ public:
     QVector<Core::FaceIndex> uioverlayFaces;
     QVector3D minPoint;
     QVector3D maxPoint;
+    QVector3D centerPoint;
+    float width;    // size in x
+    float height;   // y
+    float depth;    // z
+    float boundingRadius; // radius of a bounding sphere
 
 
     void swallow();

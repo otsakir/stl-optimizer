@@ -2,6 +2,7 @@
 #include "app.h"
 #include "loader.h"
 #include "limits.h"
+#include "cmath"
 
 
 static MeshContext meshContext;
@@ -57,18 +58,28 @@ ModelMesh::ModelMesh()
         // find max
         if (point.x() > maxPoint.x())
             maxPoint.setX(point.x());
-        if (point.y() > minPoint.y())
+        if (point.y() > maxPoint.y())
             maxPoint.setY(point.y());
-        if (point.z() > minPoint.z())
+        if (point.z() > maxPoint.z())
             maxPoint.setZ(point.z());
 
     });
     vi.pumpAll();
+    centerPoint = (minPoint + maxPoint)/2;
+    width = maxPoint.x() - minPoint.x();
+    height = maxPoint.y() - minPoint.y();
+    depth = maxPoint.z() - minPoint.z();
+
+    boundingRadius = sqrt(width*width + height*height + depth*depth);
+
     qDebug() << "min point: " << minPoint;
     qDebug() << "max point: " << maxPoint;
+    qDebug() << "mid point: " << centerPoint;
+    qDebug() << "dimensions: " << width << " " << height << " " << depth;
+    qDebug() << "bounding radius: " << boundingRadius;
 
-    modelTrans.rotate(-90, 1, 0, 0);
-
+    //modelTrans.rotate(-90, 1, 0, 0);
+    modelTrans.translate(-centerPoint.x(),-centerPoint.y(), -minPoint.z());
 }
 
 BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount), side(side)
@@ -88,8 +99,6 @@ BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount
     }
     modelTrans.translate(-side/2,0,side/2);
     modelTrans.rotate(-90, 1,0,0);
-
-
 
 }
 

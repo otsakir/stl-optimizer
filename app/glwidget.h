@@ -130,12 +130,12 @@ private:
     int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
     bool ctrlDown = false;
 
-    Core::Camera camera;
+    Core::Camera* camera;
 
     QPoint mouseLastPos;
     QPoint mousePressedPos;
-    ModelMesh meshModel;
-    BasegridMesh basegridMesh = BasegridMesh(20, 15.0f);
+    ModelMesh* modelMesh;
+    BasegridMesh* basegridMesh;
 
     //Core::VertexBufferDraft wireframeBuffer;
     //Core::VertexBufferDraft triangleBuffer;
