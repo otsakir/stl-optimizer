@@ -78,7 +78,7 @@ ModelMesh::ModelMesh()
     qDebug() << "dimensions: " << width << " " << height << " " << depth;
     qDebug() << "bounding radius: " << boundingRadius;
 
-    //modelTrans.rotate(-90, 1, 0, 0);
+    modelTrans.rotate(-90, 1, 0, 0);
     modelTrans.translate(-centerPoint.x(),-centerPoint.y(), -minPoint.z());
 }
 

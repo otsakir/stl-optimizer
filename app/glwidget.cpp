@@ -333,17 +333,14 @@ void GLWidget::paintGL()
     camera->setRot(-m_xRot/16.0f, -m_yRot/16.0f, -m_zRot/16.0f);
 
     // camera & world
-    QMatrix4x4 vwTrans = camera->getTrans();
-    QMatrix4x4 pvwTrans = pTrans * vwTrans; // used all over the place
-
-
-    //matMvpTransformation = pTrans * vwTrans;
-    QMatrix3x3 normalTrans3 = vwTrans.toGenericMatrix<3,3>();
+    QMatrix4x4 vTrans = camera->getTrans();
+    vTrans.translate(0,-50,0);
+    QMatrix4x4 pvTrans = pTrans * vTrans; // used all over the place
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, pvwTrans * modelMesh->modelTrans);
+    renderState_idProjection.program->setUniformValue(0, pvTrans * modelMesh->modelTrans);
     fbo->bind();
     glDisable(GL_BLEND);
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -354,17 +351,22 @@ void GLWidget::paintGL()
     renderState_idProjection.vao.release();
 
     // Render model
-    glEnable(GL_BLEND);
+    QMatrix4x4 vmTrans = vTrans * modelMesh->modelTrans;
+    QMatrix3x3 normalTrans3 = vmTrans.toGenericMatrix<3,3>();
+
     glClearColor(0.2, 0.2, 0.2, 1.0);
     renderState_model.vao.bind();
     renderState_model.program->bind();
     int loc = renderState_model.program->uniformLocation("mvpMatrix");
-    renderState_model.program->setUniformValue(loc, pvwTrans * modelMesh->modelTrans);
+    renderState_model.program->setUniformValue(loc, pvTrans * modelMesh->modelTrans);
     loc = renderState_model.program->uniformLocation("normalMatrix");
     renderState_model.program->setUniformValue(loc, normalTrans3);
     glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
+
+    glEnable(GL_BLEND);
+    glClearColor(0.2, 0.2, 0.2, 1.0);
 
     // process wireframe data
     if (updateUiOverlay()) // update set of faces according to UI state
@@ -383,7 +385,7 @@ void GLWidget::paintGL()
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
     loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
-    renderState_uiOverlay.program->setUniformValue(loc, pvwTrans * basegridMesh->modelTrans);
+    renderState_uiOverlay.program->setUniformValue(loc, pvTrans * basegridMesh->modelTrans);
     QColor gridColor(Qt::white); gridColor.setAlpha(40);
     renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), gridColor);
 
@@ -395,7 +397,7 @@ void GLWidget::paintGL()
 
     glLineWidth(3);
     glClear(GL_DEPTH_BUFFER_BIT);
-    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvwTrans * modelMesh->modelTrans);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvTrans * modelMesh->modelTrans);
     QColor selectionColor(Qt::green); selectionColor.setAlpha(200);
     renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), selectionColor);
     meshinfo = meshContext.wireframeBuffer.getMeshInfo(modelMesh);

@@ -417,11 +417,12 @@ public:
 class Camera
 {
 private:
-    QMatrix4x4 trans; // holds initial positioning
     float zoom;
     float zPos;
     float xRot, yRot, zRot;
 public:
+    QMatrix4x4 trans; // holds initial positioning
+
     Camera()
         : xRot(0), yRot(0), zRot(0), zPos(0), zoom(0)
     {}
