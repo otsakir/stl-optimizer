@@ -15,6 +15,12 @@ public:
     explicit DockWidget(QWidget *parent = nullptr);
     ~DockWidget();
 
+signals:
+    void buttonRebaseClicked();
+
+private slots:
+    void on_toolButton_4_clicked();
+
 private:
     Ui::DockWidget *ui;
 };

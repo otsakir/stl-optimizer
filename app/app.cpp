@@ -1,8 +1,5 @@
-
 #include "app.h"
 #include "loader.h"
-#include "limits.h"
-#include "cmath"
 
 
 static MeshContext meshContext;
@@ -37,40 +34,12 @@ void ModelMesh::swallowUioverlay(Core::VertexBufferDraft& targetDraft)
 
 
 ModelMesh::ModelMesh()
-    : minPoint(QVector3D(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max())),
-      maxPoint(QVector3D(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min()))
 {
     // load primary source data
     Utils::Loader loader;
-    loader.loadStl("/home/nando/tmp/cone.stl", *this);
+    loader.loadStl("dino.stl", *this);
 
-    QVector3D& minPoint = this->minPoint;
-    QVector3D& maxPoint = this->maxPoint;
-
-    VertexIterator vi(*this, Core::VertexIterator::ITERATE_TRIANGLES, Core::VertexIterator::ACTION_CALLBACK_POINT, [&minPoint, &maxPoint](const QVector3D& point){
-        // find min
-        if (point.x() < minPoint.x())
-            minPoint.setX(point.x());
-        if (point.y() < minPoint.y())
-            minPoint.setY(point.y());
-        if (point.z() < minPoint.z())
-            minPoint.setZ(point.z());
-        // find max
-        if (point.x() > maxPoint.x())
-            maxPoint.setX(point.x());
-        if (point.y() > maxPoint.y())
-            maxPoint.setY(point.y());
-        if (point.z() > maxPoint.z())
-            maxPoint.setZ(point.z());
-
-    });
-    vi.pumpAll();
-    centerPoint = (minPoint + maxPoint)/2;
-    width = maxPoint.x() - minPoint.x();
-    height = maxPoint.y() - minPoint.y();
-    depth = maxPoint.z() - minPoint.z();
-
-    boundingRadius = sqrt(width*width + height*height + depth*depth);
+    generateMetrics();
 
     qDebug() << "min point: " << minPoint;
     qDebug() << "max point: " << maxPoint;
@@ -78,8 +47,7 @@ ModelMesh::ModelMesh()
     qDebug() << "dimensions: " << width << " " << height << " " << depth;
     qDebug() << "bounding radius: " << boundingRadius;
 
-    modelTrans.rotate(-90, 1, 0, 0);
-    modelTrans.translate(-centerPoint.x(),-centerPoint.y(), -minPoint.z());
+    modelTrans.translate(-centerPoint.x(),-minPoint.y(), -centerPoint.z());
 }
 
 BasegridMesh::BasegridMesh(int squareCount, float side): squareCount(squareCount), side(side)

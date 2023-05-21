@@ -20,6 +20,8 @@ AppWindow::AppWindow(QWidget *parent) :
     DockWidget *dock = new DockWidget(this);
     addDockWidget(Qt::LeftDockWidgetArea, dock);
     dock->setAllowedAreas(Qt::LeftDockWidgetArea);
+
+    connect(dock, &DockWidget::buttonRebaseClicked, glWidget, &GLWidget::rebaseOnFace);
 }
 
 AppWindow::~AppWindow()

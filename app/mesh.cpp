@@ -1,7 +1,9 @@
 #include "mesh.h"
 #include <limits.h>
-#include <algorithm>  // std::fill()
+#include <algorithm>
 #include <QDebug>
+#include "cmath"
+
 
 
 
@@ -62,14 +64,14 @@ void VertexIterator::init()
     }
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sourceArrays, Type type, ActionType actionType, PointCallback pointCallback)
+VertexIterator::VertexIterator(SourceArrays& sourceArrays, Type type, ActionType actionType, PointCallback pointCallback)
     : VertexIterator(sourceArrays, 0, type, actionType)
 {
     this->pointCallback = pointCallback;
 }
 
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>* target, Type type, ActionType actionType)
+VertexIterator::VertexIterator(SourceArrays& sa, QVector<float>* target, Type type, ActionType actionType)
     : sourceArrays(sa),
       targetArray(target),
       faceIndex(0),
@@ -103,7 +105,7 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<float>* target, T
 
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
+VertexIterator::VertexIterator(SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
     : VertexIterator(sa, (bufferDraft.registerForFrame(&sa)), type, actionType)
 {
     this->bufferDraft = &bufferDraft;
@@ -111,7 +113,7 @@ VertexIterator::VertexIterator(const SourceArrays& sa, VertexBufferDraft& buffer
 
 
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType)
+VertexIterator::VertexIterator(SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type, ActionType actionType)
     : sourceArrays(sa),
       targetArray(&target),
       faceIndex(0),
@@ -141,7 +143,7 @@ VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceI
     init();
 }
 
-VertexIterator::VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
+VertexIterator::VertexIterator(SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type, ActionType actionType)
     : VertexIterator(sa, faceIds, *(bufferDraft.registerForFrame(&sa)), type, actionType)
 {
     this->bufferDraft = &bufferDraft;
@@ -174,7 +176,7 @@ void VertexIterator::action_pushFaceId()
 // pushes poinnt index by points[pointIndex]
 void VertexIterator::action_pushPoint()
 {
-    const QVector3D& v = sourceArrays.points[ pointIndex ];
+    QVector3D& v = sourceArrays.points[ pointIndex ];
     targetArray->append(v.x());
     targetArray->append(v.y());
     targetArray->append(v.z());
@@ -183,14 +185,7 @@ void VertexIterator::action_pushPoint()
 // calculates single normal vector for face indexed by faces[faceIndex] and triple-pushes it.
 void VertexIterator::action_pushNormal()
 {
-    const QVector3D& p1 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[0] ];
-    const QVector3D& p2 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[1] ];
-    const QVector3D& p3 = sourceArrays.points[ sourceArrays.faces[faceIndex].points[2] ];
-
-    const QVector3D v1 = p2-p1;
-    const QVector3D v2 = p3-p2;
-
-    QVector3D n = QVector3D::normal(v1,v2);
+    QVector3D n = sourceArrays.faceNormal(faceIndex);
     for (int i=0; i<3; i++) // same normal for all points of a face
     {
         targetArray->append(n.x());
@@ -202,7 +197,13 @@ void VertexIterator::action_pushNormal()
 // invokes callback passing it point indexed by faces[faceIndex]/points[infaceIndex]
 void VertexIterator::action_callbackFacePoint()
 {
-    const QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
+    QVector3D& v = sourceArrays.points[ sourceArrays.faces[faceIndex].points[infaceIndex] ];
+    pointCallback(v);
+}
+
+void VertexIterator::action_callbackPoint()
+{
+    QVector3D& v = sourceArrays.points[ pointIndex ];
     pointCallback(v);
 }
 
@@ -285,7 +286,10 @@ void VertexIterator::setAction(ActionType t)
             actionFunction = &VertexIterator::action_pushNormal;
         break;
         case ACTION_CALLBACK_POINT:
-            actionFunction = &VertexIterator::action_callbackFacePoint;
+            if (type == ITERATE_POINTS)
+                actionFunction = &VertexIterator::action_callbackPoint;
+            else
+                actionFunction = &VertexIterator::action_callbackFacePoint;
         break;
     }
     actionType = t;
@@ -382,6 +386,47 @@ void Mesh::swallow(Core::VertexBufferDraft& targetDraft)
         VertexIterator vi(*this, target, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_PUSH_POINT);
         while (vi.pumpByPoint()) {};
     }
+}
+
+void Mesh::generateMetrics()
+{
+    float maxfloat = std::numeric_limits<float>::max();
+    float minfloat = std::numeric_limits<float>::min();
+    this->minPoint = QVector3D(maxfloat, maxfloat, maxfloat);
+    this->maxPoint = QVector3D(minfloat, minfloat, minfloat);
+    QVector3D& minPoint = this->minPoint;
+    QVector3D& maxPoint = this->maxPoint;
+
+    VertexIterator vi(*this, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_CALLBACK_POINT, [&minPoint, &maxPoint](QVector3D& point){
+        // find min
+        if (point.x() < minPoint.x())
+            minPoint.setX(point.x());
+        if (point.y() < minPoint.y())
+            minPoint.setY(point.y());
+        if (point.z() < minPoint.z())
+            minPoint.setZ(point.z());
+        // find max
+        if (point.x() > maxPoint.x())
+            maxPoint.setX(point.x());
+        if (point.y() > maxPoint.y())
+            maxPoint.setY(point.y());
+        if (point.z() > maxPoint.z())
+            maxPoint.setZ(point.z());
+
+    });
+    vi.pumpAll();
+    centerPoint = (minPoint + maxPoint)/2;
+    width = maxPoint.x() - minPoint.x();
+    height = maxPoint.y() - minPoint.y();
+    depth = maxPoint.z() - minPoint.z();
+
+    boundingRadius = sqrt(width*width + height*height + depth*depth);
+
+    qDebug() << "min point: " << minPoint;
+    qDebug() << "max point: " << maxPoint;
+    qDebug() << "mid point: " << centerPoint;
+    qDebug() << "dimensions: " << width << " " << height << " " << depth;
+    qDebug() << "bounding radius: " << boundingRadius;
 }
 
 /*

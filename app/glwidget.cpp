@@ -560,3 +560,45 @@ void GLWidget::keyReleaseEvent(QKeyEvent* event)
         }
     }
 }
+
+void GLWidget::rebaseOnFace()
+{
+    if (selectedFace != -1)
+    {
+        // find rotation matrix from source and target normal of selected face
+        QVector3D n = modelMesh->faceNormal(selectedFace);
+        QVector3D targetNormal(0,-1,0); // we need to rotate the object so that it faces down (the Υ axis)
+        QQuaternion q = QQuaternion::rotationTo(n, targetNormal);
+        QMatrix4x4 rotMatrix(q.toRotationMatrix());
+
+        // rotate all points of the model
+        VertexIterator vi(*modelMesh, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_CALLBACK_POINT, [&rotMatrix](QVector3D& point){
+            point = rotMatrix*point;
+        });
+        vi.pumpAll();
+        modelMesh->generateMetrics();
+
+        // populate buffer drafts
+        MeshContext& meshContext = App::getMeshContext();
+        meshContext.triangleBuffer.clear();
+        meshContext.normalBuffer.clear();
+        modelMesh->swallow();
+
+        // populate vertex buffer objects
+        vboPoints.bind();
+        vboPoints.allocate(meshContext.triangleBuffer.getData().constData(), meshContext.triangleBuffer.getData().size() * sizeof(GLfloat));
+        vboPoints.release();
+        vboNormals.bind();
+        vboNormals.allocate(meshContext.normalBuffer.getData().constData(), meshContext.normalBuffer.getData().size() * sizeof(GLfloat));
+        vboNormals.release();
+
+        modelMesh->modelTrans.setToIdentity();
+        modelMesh->modelTrans.translate(-modelMesh->centerPoint.x(),-modelMesh->minPoint.y(), -modelMesh->centerPoint.z());
+
+        // clear selection
+        this->selectedFace = -1;
+        this->selectedFaces.clear();
+        updateUiOverlay();
+        update();
+    }
+}

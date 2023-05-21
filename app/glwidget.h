@@ -92,6 +92,7 @@ public slots:
     void updateZoomLevel(int degreesDelta);
     void onMouseClicked(int x, int y);
     void onCtrlStateChanged(bool down);
+    void rebaseOnFace();
 
 
     void cleanup();
