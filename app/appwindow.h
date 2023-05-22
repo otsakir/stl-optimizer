@@ -17,6 +17,15 @@ public:
 
 public slots:
 
+private slots:
+    void on_action_Open_triggered();
+
+    void on_toolButtonRebase_clicked();
+
+signals:
+    void newStlFilename(QString filename);
+    void buttonRebaseClicked();
+
 private:
     Ui::AppWindow *ui;
 };

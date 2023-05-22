@@ -87,6 +87,19 @@ struct SourceArrays
         pointFaces.clear();
         faceFaces.clear();
     }
+
+    QVector3D faceNormal(FaceIndex faceIndex) const
+    {
+        const QVector3D& p1 = points[ faces[faceIndex].points[0] ];
+        const QVector3D& p2 = points[ faces[faceIndex].points[1] ];
+        const QVector3D& p3 = points[ faces[faceIndex].points[2] ];
+
+        const QVector3D v1 = p2-p1;
+        const QVector3D v2 = p3-p2;
+
+        QVector3D n = QVector3D::normal(v1,v2);
+        return n;
+    }
 };
 
 /*!
@@ -219,18 +232,21 @@ public:
     {
         ACTION_PUSH_POINT, // pushed the point determined by face/
         ACTION_PUSH_FACEID,
-        ACTION_PUSH_NORMAL
+        ACTION_PUSH_NORMAL,
+        ACTION_CALLBACK_POINT, // just invoke the callback passing each point
     };
 
-    typedef bool (VertexIterator::*Pump_cb)(); // typedef a member function pointer to pumpBy*() members
+    typedef bool (VertexIterator::*Pump_cb)(); // typedef a member function pointer for pumpBy*() members
+    //typedef void (*PointCallback)(const QVector3D& point);
+    typedef std::function<void(QVector3D& point)> PointCallback; // a callback type to be used when iterating over points
 
-    //
-    VertexIterator(const SourceArrays& sa, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
-    VertexIterator(const SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    VertexIterator(SourceArrays& sourceArrays, Type type, ActionType actionType, PointCallback pointCallback);
+    VertexIterator(SourceArrays& sa, QVector<float>* target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
+    VertexIterator(SourceArrays& sa, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
     // iterator within face id lookup table that pushes directly to a QVector target
-    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    VertexIterator(SourceArrays& sa, QVector<FaceIndex>* faceIds, QVector<float>& target, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
     // iterator within face id lookup table that appends to a VertexBufferDraft
-    VertexIterator(const SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT, Pump_cb pumpCallback = nullptr);
+    VertexIterator(SourceArrays& sa, QVector<FaceIndex>* faceIds, VertexBufferDraft& bufferDraft, Type type=ITERATE_TRIANGLES, ActionType actionType=ACTION_PUSH_POINT);
 
     void init();
     ~VertexIterator();
@@ -244,7 +260,7 @@ public:
 
 private:
 
-    const SourceArrays& sourceArrays;
+    SourceArrays& sourceArrays;
     const QVector<FaceIndex>* faceIds = nullptr;
 
     Indexer<FaceIndex>* faceIndexer = nullptr;
@@ -252,6 +268,7 @@ private:
     // variables for iterating over faces and points
     FaceIndex faceIndex;
     int infaceIndex;
+    int pointIndex;     // index to .points array
 
     Type type;
     ActionType actionType;
@@ -259,11 +276,14 @@ private:
     typedef void (VertexIterator::*Action_cb)(); // action callback type
     void action_pushFacePoint(); /// Push a QVector3D point determined from faceIndec/infaceIndex to target after converting it to 3 floats.
     void action_pushFaceId();
-    void action_pushPoint(PointIndex pointIndex); /// Push a QVector3D point from mesh.points into target after converting it to 3 floats.
+    void action_pushPoint(); /// Push a QVector3D point from mesh.points into target after converting it to 3 floats.
     void action_pushNormal();
+    void action_callbackFacePoint();
+    void action_callbackPoint();
     Action_cb actionFunction;
+    PointCallback pointCallback;
 
-    QVector<float>& targetArray;
+    QVector<float>* targetArray;
     VertexBufferDraft* bufferDraft;
     void setAction(ActionType t);
 
@@ -280,6 +300,15 @@ public:
 
     QMatrix4x4 modelTrans; // place item in the world
     typedef Triangle FaceType;
+    // metrics
+    QVector3D minPoint;
+    QVector3D maxPoint;
+    QVector3D centerPoint;
+    float width;    // size in x
+    float height;   // y
+    float depth;    // z
+    float boundingRadius; // radius of a bounding sphere
+
 
 
     enum ChewTypeFields
@@ -317,6 +346,7 @@ public:
     void chew(ChewType chewType); // processes primary point and face data to product higher level secondary mesh data like a graph of points, faces adjacent to points etc.
     //ChewType chewType(); // returns the chew type used for processing vertex info
     void swallow(Core::VertexBufferDraft& targetDraft);
+    void generateMetrics();
 
     friend class Utils::Loader;
 
@@ -406,6 +436,52 @@ public:
     }
 
     friend void VertexIterator::pumpAll();
+};
+
+class Camera
+{
+private:
+    float zoom;
+    float zPos;
+    float xRot, yRot, zRot;
+public:
+    QMatrix4x4 trans; // holds initial positioning
+
+    Camera()
+        : xRot(0), yRot(0), zRot(0), zPos(0), zoom(0)
+    {}
+
+    Camera(float xRot, float yRot, float zRot, float zPos)
+        : xRot(xRot), yRot(yRot), zRot(zRot), zPos(zPos), zoom(0)
+    {}
+
+    // view transformation (inverted camera position) ready to use
+    QMatrix4x4 getTrans()
+    {
+        QMatrix4x4 viewTrans = trans;
+        viewTrans.rotate(xRot, 1, 0, 0);
+        viewTrans.rotate(yRot, 0, 1, 0);
+        viewTrans.rotate(zRot, 0, 0, 1);
+        viewTrans.translate(0,0,zPos + zoom);
+        return viewTrans.inverted();
+    }
+
+    void setTrans(QMatrix4x4& trans)
+    {
+        this->trans = trans;
+    }
+
+    void setZoom(float zoom)
+    {
+        this->zoom = zoom;
+    }
+
+    void setRot(float x, float y, float z)
+    {
+        xRot = x;
+        yRot = y;
+        zRot = z;
+    }
 };
 
 } // namespace Core

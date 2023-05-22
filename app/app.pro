@@ -1,7 +1,6 @@
 HEADERS       = glwidget.h \
                 app.h \
                 appwindow.h \
-                dockwidget.h \
                 loader.h \
                 mesh.h \
                 rendering.h \
@@ -9,7 +8,6 @@ HEADERS       = glwidget.h \
 SOURCES       = glwidget.cpp \
                 app.cpp \
                 appwindow.cpp \
-                dockwidget.cpp \
                 loader.cpp \
                 main.cpp \
                 mesh.cpp \
@@ -21,8 +19,7 @@ QT           += widgets
 INSTALLS += target
 
 FORMS += \
-    appwindow.ui \
-    dockwidget.ui
+    appwindow.ui
 
 RESOURCES += \
     icons.qrc

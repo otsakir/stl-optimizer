@@ -13,9 +13,11 @@ Loader::Loader()
 
 }
 
-void Loader::loadStl(const char* filename, Core::Mesh& new_mesh)
+void Loader::loadStl(QString filename, Core::Mesh& new_mesh)
 {
-    ReaderMesh reader_mesh (filename);
+    QByteArray ba = filename.toLocal8Bit();
+    const char *filename_cstr = ba.data();
+    ReaderMesh reader_mesh (filename_cstr);
     new_mesh.clear();
 
     // first, copy vertices

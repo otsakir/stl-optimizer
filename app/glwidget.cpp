@@ -53,6 +53,7 @@
 #include <QOpenGLShaderProgram>
 #include <QCoreApplication>
 #include <math.h>
+#include "loader.h"
 
 #include <QDebug>
 
@@ -70,11 +71,19 @@ GLWidget::GLWidget(QWidget *parent)
 
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+
+    modelMesh = new ModelMesh();
+    boundingRadius = 10;
+    basegridMesh = new BasegridMesh(20, boundingRadius);
+    resetCamera();
 }
 
 GLWidget::~GLWidget()
 {
     cleanup();
+    delete camera;
+    delete modelMesh;
+    delete basegridMesh;
 }
 
 QSize GLWidget::minimumSizeHint() const
@@ -189,38 +198,16 @@ bool GLWidget::updateUiOverlay()
     if (!selectedFaces.empty())
     {
         //qDebug() << "selected faces: " << selectedFaces.size();
-        meshModel.uioverlayFaces.clear();
-        meshModel.uioverlayFaces.append(selectedFaces);
+        modelMesh->uioverlayFaces.clear();
+        modelMesh->uioverlayFaces.append(selectedFaces);
 
         return true;
     } else
     {
-        meshModel.uioverlayFaces.clear();
+        modelMesh->uioverlayFaces.clear();
     }
-    /*
-    if (selectedFace != -1)
-    {
-        meshModel.uioverlayFaces.clear();
-        meshModel.uioverlayFaces.append(selectedFace);
 
-        return true;
-
-        //QVector<Core::FaceIndex> out_faces;
-        //adjacentFaces(meshModel, meshModel.uioverlayFaces, out_faces);
-        //meshModel.uioverlayFaces.clear();
-        //meshModel.uioverlayFaces.append(out_faces);
-
-        //meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
-
-//        makeCurrent();
-//        uiOverlayVbo.bind();
-//        uiOverlayVbo.allocate(data.constData(), data.size()* sizeof(GLfloat));
-//        uiOverlayVbo.release();
-
-    }
-    */
     return false;
-
 }
 
 void GLWidget::initializeGL()
@@ -233,35 +220,21 @@ void GLWidget::initializeGL()
     meshContext.normalBuffer.clear();
 
     // generate secondary source data
-    meshModel.chew(Core::Mesh::CHEW_GRAPH );
-    meshModel.swallow();
+    modelMesh->chew(Core::Mesh::CHEW_GRAPH );
+    modelMesh->swallow();
 
     initializeOpenGLFunctions();
 
-
     // buffer with model vertices
     vboPoints.create();
-    vboPoints.bind();
-    vboPoints.allocate(meshContext.triangleBuffer.getData().constData(), meshContext.triangleBuffer.getData().size() * sizeof(GLfloat));
-    vboPoints.release();
-    // and another one with normals
+    // and normals
     vboNormals.create();
-    vboNormals.bind();
-    vboNormals.allocate(meshContext.normalBuffer.getData().constData(), meshContext.normalBuffer.getData().size() * sizeof(GLfloat));
-    vboNormals.release();
-
-
     // buffer with face ids
     vboFaceid.create();
-    vboFaceid.bind();
-    vboFaceid.allocate(meshModel.idprojectionData.constData(), meshModel.idprojectionData.size() * sizeof(GLfloat));
-    vboFaceid.release();
-    //
 
     uiOverlayVbo.create();
     uiOverlayVbo.bind();
     uiOverlayVbo.release();
-
 
     // main scene model
     renderState_model.setVShader(
@@ -329,8 +302,6 @@ void GLWidget::initializeGL()
     renderState_uiOverlay.addAttribute("vertex",uiOverlayVbo);
     renderState_uiOverlay.setupProgram();
     renderState_uiOverlay.setupVao();
-
-
 }
 
 
@@ -344,61 +315,52 @@ void GLWidget::paintGL()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glLineWidth(1);
 
-
     // view transformation (camera)
-    QMatrix4x4 vTrans;
-    // vTrans.setToIdentity(); // implied
-    vTrans.translate(0,0,10.0f + (float)zoomLevel * Config::wheelDegreesToZUnits);
-    vTrans = vTrans.inverted();
-
-    // world transformation (transform the world as whole)
-    QMatrix4x4 wTrans;
-    // wTrans.setToIndentity();
-    wTrans.translate(0,0,-5.0);
-    wTrans.rotate(m_xRot / 16.0f, 1, 0, 0);
-    wTrans.rotate(m_yRot / 16.0f, 0, 1, 0);
-    wTrans.rotate(m_zRot / 16.0f, 0, 0, 1);
+    camera->setZoom((float)zoomLevel * Config::wheelDegreesToZUnits);
+    camera->setRot(-m_xRot/16.0f, -m_yRot/16.0f, -m_zRot/16.0f);
 
     // camera & world
-    QMatrix4x4 vwTrans = vTrans * wTrans;
-    QMatrix4x4 pvwTrans = pTrans * vwTrans; // used all over the place
-
-
-    //matMvpTransformation = pTrans * vwTrans;
-    QMatrix3x3 normalTrans3 = vwTrans.toGenericMatrix<3,3>();
+    QMatrix4x4 vTrans = camera->getTrans();
+    vTrans.translate(0,-modelMesh->height/2,0);
+    QMatrix4x4 pvTrans = pTrans * vTrans; // used all over the place
 
     // render triangle ids to image
     renderState_idProjection.vao.bind();
     renderState_idProjection.program->bind();
-    renderState_idProjection.program->setUniformValue(0, pvwTrans);
+    renderState_idProjection.program->setUniformValue(0, pvTrans * modelMesh->modelTrans);
     fbo->bind();
     glDisable(GL_BLEND);
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, meshModel.idprojectionData.size()/3);
+    glDrawArrays(GL_TRIANGLES, 0, modelMesh->idprojectionData.size()/3);
     snapshotImage = fbo->toImage();
     fbo->release();
     renderState_idProjection.vao.release();
 
     // Render model
-    glEnable(GL_BLEND);
+    QMatrix4x4 vmTrans = vTrans * modelMesh->modelTrans;
+    QMatrix3x3 normalTrans3 = vmTrans.toGenericMatrix<3,3>();
+
     glClearColor(0.2, 0.2, 0.2, 1.0);
     renderState_model.vao.bind();
     renderState_model.program->bind();
     int loc = renderState_model.program->uniformLocation("mvpMatrix");
-    renderState_model.program->setUniformValue(loc, pvwTrans);
+    renderState_model.program->setUniformValue(loc, pvTrans * modelMesh->modelTrans);
     loc = renderState_model.program->uniformLocation("normalMatrix");
     renderState_model.program->setUniformValue(loc, normalTrans3);
     glDrawArrays(GL_TRIANGLES, 0, meshContext.triangleBuffer.getData().size()/3); // 3 floats per point
     renderState_model.program->release();
     renderState_model.vao.release();
 
+    glEnable(GL_BLEND);
+    glClearColor(0.2, 0.2, 0.2, 1.0);
+
     // process wireframe data
     if (updateUiOverlay()) // update set of faces according to UI state
     {
-        meshModel.swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
+        modelMesh->swallowUioverlay(meshContext.wireframeBuffer); // populate meshModel.uioverlayData
     }
-    basegridMesh.swallow(meshContext.wireframeBuffer);
+    basegridMesh->swallow(meshContext.wireframeBuffer);
 
     // push wireframe data to the GPU
     const QVector<float>* wireframeData = &meshContext.wireframeBuffer.getData();
@@ -410,11 +372,11 @@ void GLWidget::paintGL()
     renderState_uiOverlay.vao.bind();
     renderState_uiOverlay.program->bind();
     loc = renderState_uiOverlay.program->uniformLocation("mvpMatrix");
-    renderState_uiOverlay.program->setUniformValue(loc, pvwTrans * basegridMesh.modelTrans);
+    renderState_uiOverlay.program->setUniformValue(loc, pvTrans * basegridMesh->modelTrans);
     QColor gridColor(Qt::white); gridColor.setAlpha(40);
     renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), gridColor);
 
-    Core::VertexBufferDraft::RegisteredInfo* meshinfo = meshContext.wireframeBuffer.getMeshInfo(&basegridMesh);
+    Core::VertexBufferDraft::RegisteredInfo* meshinfo = meshContext.wireframeBuffer.getMeshInfo(basegridMesh);
     if (meshinfo)
     {
         glDrawArrays(GL_LINES, meshinfo->offset/3, meshinfo->size/3);
@@ -422,10 +384,10 @@ void GLWidget::paintGL()
 
     glLineWidth(3);
     glClear(GL_DEPTH_BUFFER_BIT);
-    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvwTrans);
+    renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("mvpMatrix"), pvTrans * modelMesh->modelTrans);
     QColor selectionColor(Qt::green); selectionColor.setAlpha(200);
     renderState_uiOverlay.program->setUniformValue(renderState_uiOverlay.program->uniformLocation("color"), selectionColor);
-    meshinfo = meshContext.wireframeBuffer.getMeshInfo(&meshModel);
+    meshinfo = meshContext.wireframeBuffer.getMeshInfo(modelMesh);
     if (meshinfo)
     {
         glDrawArrays(GL_LINES, meshinfo->offset/3, meshinfo->size/3);
@@ -440,7 +402,7 @@ void GLWidget::paintGL()
 void GLWidget::resizeGL(int w, int h)
 {
     pTrans.setToIdentity();
-    pTrans.perspective(45.0f, GLfloat(w) / h, 0.01f, 100.0f); // near/far only care about clipping
+    pTrans.perspective(45.0f, GLfloat(w) / h, 0.01f, 1000.0f); // near/far only care about clipping
 
     if (fbo)
     {
@@ -558,7 +520,7 @@ void GLWidget::wheelEvent(QWheelEvent *event)
     QPoint numPixels = event->pixelDelta();
     QPoint numDegrees = event->angleDelta() / 8;
 
-    emit zoomChangedBy(numDegrees.y());
+    emit zoomChangedBy(numDegrees.y() * boundingRadius/10);
     event->ignore();
 }
 
@@ -584,4 +546,82 @@ void GLWidget::keyReleaseEvent(QKeyEvent* event)
             emit ctrlStateChanged(false);
         }
     }
+}
+
+void GLWidget::resetCamera()
+{
+    m_xRot = 0;
+    m_yRot = 0;
+    m_zRot = 0;
+    zoomLevel = 0;
+    if (camera)
+        delete camera;
+    camera = new Core::Camera(0, 0, 0, boundingRadius); // place camera at the proper distance
+    update();
+}
+
+void GLWidget::processModel()
+{
+    modelMesh->generateMetrics();
+
+    // populate buffer drafts
+    MeshContext& meshContext = App::getMeshContext();
+    meshContext.triangleBuffer.clear();
+    meshContext.normalBuffer.clear();
+    modelMesh->swallow();
+
+    // populate vertex buffer objects
+    vboPoints.bind();
+    vboPoints.allocate(meshContext.triangleBuffer.getData().constData(), meshContext.triangleBuffer.getData().size() * sizeof(GLfloat));
+    vboPoints.release();
+    vboNormals.bind();
+    vboNormals.allocate(meshContext.normalBuffer.getData().constData(), meshContext.normalBuffer.getData().size() * sizeof(GLfloat));
+    vboNormals.release();
+    // buffer with face ids
+    vboFaceid.bind();
+    vboFaceid.allocate(modelMesh->idprojectionData.constData(), modelMesh->idprojectionData.size() * sizeof(GLfloat));
+    vboFaceid.release();
+
+    modelMesh->modelTrans.setToIdentity();
+    modelMesh->modelTrans.translate(-modelMesh->centerPoint.x(),-modelMesh->minPoint.y(), -modelMesh->centerPoint.z());
+
+    boundingRadius = modelMesh->boundingRadius;
+    resetCamera();
+
+    if (basegridMesh)
+        delete basegridMesh;
+    basegridMesh = new BasegridMesh(20, std::max(modelMesh->width, modelMesh->height)* 4.0);
+
+
+    // clear selection
+    this->selectedFace = -1;
+    this->selectedFaces.clear();
+    updateUiOverlay();
+    update();
+}
+
+void GLWidget::rebaseOnFace()
+{
+    if (selectedFace != -1)
+    {
+        // find rotation matrix from source and target normal of selected face
+        QVector3D n = modelMesh->faceNormal(selectedFace);
+        QVector3D targetNormal(0,-1,0); // we need to rotate the object so that it faces down (the Υ axis)
+        QQuaternion q = QQuaternion::rotationTo(n, targetNormal);
+        QMatrix4x4 rotMatrix(q.toRotationMatrix());
+
+        // rotate all points of the model
+        VertexIterator vi(*modelMesh, Core::VertexIterator::ITERATE_POINTS, Core::VertexIterator::ACTION_CALLBACK_POINT, [&rotMatrix](QVector3D& point){
+            point = rotMatrix*point;
+        });
+        vi.pumpAll();
+        processModel();
+    }
+}
+
+void GLWidget::onNewStlFilename(QString filename)
+{
+    Utils::Loader loader;
+    loader.loadStl(filename, *modelMesh);
+    processModel();
 }

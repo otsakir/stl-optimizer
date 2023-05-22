@@ -92,7 +92,9 @@ public slots:
     void updateZoomLevel(int degreesDelta);
     void onMouseClicked(int x, int y);
     void onCtrlStateChanged(bool down);
-
+    void rebaseOnFace();
+    void onNewStlFilename(QString filename);
+    void resetCamera();
 
     void cleanup();
 
@@ -115,6 +117,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
 
+    void processModel();
     bool updateUiOverlay();
 
 
@@ -127,19 +130,15 @@ private:
     int xTrans = 0;
     int yTrans = 0;
     int zTrans = 0;
-    int zoomLevel = 0; // expressed in "mouse wheel rotation degrees"
+    int zoomLevel = 0; // expressed as "mouse wheel rotation degrees"
     bool ctrlDown = false;
+
+    Core::Camera* camera = 0;
 
     QPoint mouseLastPos;
     QPoint mousePressedPos;
-    ModelMesh meshModel;
-    BasegridMesh basegridMesh = BasegridMesh(20, 15.0f);
-
-    //Core::VertexBufferDraft wireframeBuffer;
-    //Core::VertexBufferDraft triangleBuffer;
-
-
-    //Core::Mesh meshUiOverlay;
+    ModelMesh* modelMesh = 0;
+    BasegridMesh* basegridMesh = 0;
 
     RenderState renderState_model;
     RenderState renderState_idProjection;
@@ -149,22 +148,21 @@ private:
     QOpenGLBuffer vboNormals;
     QOpenGLBuffer vboFaceid;
 
-    // visible rendering program
     QOpenGLFramebufferObject* fbo = 0;
-
-    // idProjection program
     QImage snapshotImage;
+
     int selectedFace = -1; // id of the clicked face. -1 if none is selected
     QVector<Core::FaceIndex> selectedFaces;
 
     // ui overlay rendering
-    QOpenGLShaderProgram* uiOverlayProgram = nullptr;
+    QOpenGLShaderProgram* uiOverlayProgram = 0;
     QOpenGLVertexArrayObject uiOverlay_vao;
     QOpenGLBuffer uiOverlayVbo;
 
     // transformations
     QMatrix4x4 pTrans;
 
+    float boundingRadius = 10;
 };
 
 

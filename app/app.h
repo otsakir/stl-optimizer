@@ -20,7 +20,6 @@ public:
     QVector<float> idprojectionData; // face ids to project
     QVector<Core::FaceIndex> uioverlayFaces;
 
-
     void swallow();
     void swallowUioverlay(Core::VertexBufferDraft& targetDraft);
 

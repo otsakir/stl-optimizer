@@ -19,7 +19,7 @@ public:
      * @param filename path and filename of the .stl file to load
      * @param mesh allocated Core::Mesh object to hold new mesh data
      */
-    void loadStl(const char* filename, Core::Mesh& mesh); // add options parameter
+    void loadStl(QString filename, Core::Mesh& mesh); // add options parameter
 };
 
 } // namespace Utils
