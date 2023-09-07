@@ -1,3 +1,5 @@
+_This project has been moved to https://gitlab.com/otsakir/stl-optimizer_
+
 # STL Optimizer
 
 A 3D editor application for STL file optimization. Written on OpenGL/Qt. The end goal, 3D printing.
